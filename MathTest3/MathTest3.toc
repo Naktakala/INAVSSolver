@@ -1,0 +1,25 @@
+\nobreakspace {}\hfill \textbf {Page}\par 
+\contentsline {section}{\numberline {1}The incompressible Navier-Stokes equations}{2}
+\contentsline {section}{\numberline {2}Some necessary tools}{3}
+\contentsline {subsection}{\numberline {2.1}Tensors}{3}
+\contentsline {subsubsection}{\numberline {2.1.1}Tensor product of two vectors, $\mathbf {a}\otimes \mathbf {b}$}{3}
+\contentsline {subsubsection}{\numberline {2.1.2}Component-wise multiplication of vectors, $\mathbf {a}\mathbf {b}$}{3}
+\contentsline {subsubsection}{\numberline {2.1.3}Component-wise division of vectors, $\mathbf {a}^{-1}\mathbf {b}$}{3}
+\contentsline {subsubsection}{\numberline {2.1.4}Commutativity of component-wise operations}{4}
+\contentsline {subsubsection}{\numberline {2.1.5}Dot-product of a vector with a tensor, $\mathbf {a} \bullet \{t\}$}{4}
+\contentsline {subsubsection}{\numberline {2.1.6}Dot-product of a vector with a tensor product of two other vectors, $\mathbf {a} \bullet \{\mathbf {b}\otimes \mathbf {c}\}$}{5}
+\contentsline {subsubsection}{\numberline {2.1.7}Divergence of a vector given its gradient, $\bm {\nabla }\bullet \mathbf {a} = \mathbb {1}\bullet \mathclose {\setbox \z@ \hbox {\frozen@everymath \@emptytoks \mathsurround \z@ $\nulldelimiterspace \z@ \left (\vcenter to\tw@ \big@size {}\right .$}\box \z@ }(\bm {\nabla }\mathbf {a}) (\DOTSB \sum@ \slimits@ _j \mathbf {b}_j) \mathclose {\setbox \z@ \hbox {\frozen@everymath \@emptytoks \mathsurround \z@ $\nulldelimiterspace \z@ \left )\vcenter to\tw@ \big@size {}\right .$}\box \z@ }$}{5}
+\contentsline {subsection}{\numberline {2.2}Unstructured meshes and the treatment of certain quantities}{6}
+\contentsline {subsubsection}{\numberline {2.2.1}Linear interpolation of a quantity $\phi $ to a face}{6}
+\contentsline {subsubsection}{\numberline {2.2.2}Linear interpolation of gradient quantities}{7}
+\contentsline {subsubsection}{\numberline {2.2.3}Computing gradients}{7}
+\contentsline {subsubsection}{\numberline {2.2.4}Flux of a gradient}{8}
+\contentsline {section}{\numberline {3}Discretization of the momentum equation}{10}
+\contentsline {subsection}{\numberline {3.1}Material properties at faces, $\rho _f$ and $\mu _f$}{10}
+\contentsline {subsection}{\numberline {3.2}Face convection term, $\mathaccentV {dot}05F{m}_f^{(n-1)} \mathbf {u}_f $ }{11}
+\contentsline {subsection}{\numberline {3.3}Gradient terms, $\{ \mu \nabla \mathbf {u}\}_f$ and $\{ \mu (\nabla \mathbf {u})^T \}_f$}{11}
+\contentsline {subsection}{\numberline {3.4}Divergence term, $(\mu \bm {\nabla }\bullet \mathbf {u}^{(n-1)})_f$}{11}
+\contentsline {subsection}{\numberline {3.5}Face pressure, $p_f$}{11}
+\contentsline {subsection}{\numberline {3.6}Coefficient formulation and under-relaxation}{12}
+\contentsline {section}{\numberline {4}Segregated solver (The SIMPLE method)}{13}
+\contentsline {subsection}{\numberline {4.1}Computing face velocities}{14}
