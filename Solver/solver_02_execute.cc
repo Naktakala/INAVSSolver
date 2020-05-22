@@ -70,10 +70,10 @@ void INAVSSolver::Execute()
 
     log.LogEvent(tag_gradP_pc,ChiLog::EventType::EVENT_BEGIN);
     VecSet(x_gradp,0.0);
-    int iref=0;
-    double pref=0.0;
-    VecGetValues(x_pc,1,&iref,&pref);
-    VecShift(x_pc,-pref);
+//    int iref=0;
+//    double pref=0.0;
+//    VecGetValues(x_pc,1,&iref,&pref);
+//    VecShift(x_pc,-pref);
 
     ComputeGradP_GG(x_gradp, x_pc);
     log.LogEvent(tag_gradP_pc,ChiLog::EventType::EVENT_END);

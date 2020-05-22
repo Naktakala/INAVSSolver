@@ -112,7 +112,6 @@ public:
   void Initialize();
   void Execute();
 
-  void ComputeGradP(Vec v_gradp, Vec v_p);
   void ComputeGradP_GG(Vec v_gradp, Vec v_p);
   void ComputeGradU();
   void AssembleMomentumSystem();

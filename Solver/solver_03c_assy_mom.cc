@@ -74,7 +74,7 @@ void INAVSSolver::AssembleMomentumSystem()
       b_P = b_P + a_t*u_P_old;
     }
 
-    //======================================= Face terms
+    //======================================= Loop over faces
     int f=-1;
     for (auto& face : cell.faces)
     {
@@ -249,6 +249,7 @@ void INAVSSolver::AssembleMomentumSystem()
     //=========================================== Declare coeficients
     chi_mesh::Vector3 bp_P;
 
+    //=========================================== Loop over faces
     int f=-1;
     for (auto& face : cell.faces)
     {
@@ -266,7 +267,7 @@ void INAVSSolver::AssembleMomentumSystem()
 
         auto& a_N = momentum_coeffs[adj_cell->local_id].a_P;
 
-        //=========================================== Map indices
+        //================================== Map indices
         int jp   = fv_sdm.MapDOF(face.neighbor, &uk_man_p, PRESSURE);
 
         //================================== Get adj-cell values
@@ -280,17 +281,17 @@ void INAVSSolver::AssembleMomentumSystem()
           p_avg(dim) = (p_P / a_P[dim] + p_N / a_N[dim]) /
                        (1.0/a_P[dim] + 1.0/a_N[dim]);
 
-        //===================== Develop pressure entry
+        //================================== Develop pressure entry
         bp_P = bp_P - A_f*n*p_avg;
       }//not bndry
       else
       {
-        //===================== Compute Area vector
+        //================================== Compute Area vector
         auto ds = face.centroid - cell.centroid;
 
         double p_avg  = p_P + gradp_P.Dot(ds);
 
-        //===================== Develop pressure entry
+        //================================== Develop pressure entry
         bp_P = bp_P - A_f*n*p_avg;
       }//bndry
     }//for faces
@@ -301,7 +302,7 @@ void INAVSSolver::AssembleMomentumSystem()
   }//for cells
 
 
-  //======================================== Assemble matrices globally
+  //============================================= Assemble matrices globally
   for (int i=0; i<num_dimensions; ++i)
   {
     MatAssemblyBegin(A_u[i],MAT_FINAL_ASSEMBLY);

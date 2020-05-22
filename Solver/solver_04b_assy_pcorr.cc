@@ -25,6 +25,13 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
     //======================================= Map row indices of unknowns
     int ip = fv_sdm.MapDOF(cell.global_id,&uk_man_p,PRESSURE);
 
+    if (cell.global_id == 0)
+    {
+      MatSetValue(A_pc,ip,ip,1.0,ADD_VALUES);
+      VecSetValue(b_p,ip,0.0,ADD_VALUES);
+      continue;
+    }
+
     //======================================= Face terms
     int f=-1;
     for (auto& face : cell.faces)
@@ -75,7 +82,10 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
         //===================== Develop diffusion entry
         double diffusion_entry = -(rho*alpha_u*V_f*(A_f*n).Dot(a_inv_ds_inv));
 
-        MatSetValue(A_pc,ip,jp_p, diffusion_entry,ADD_VALUES);
+        if (face.neighbor == 0)
+          VecSetValue(b_p,ip,-diffusion_entry*0.0,ADD_VALUES);
+        else
+          MatSetValue(A_pc,ip,jp_p, diffusion_entry,ADD_VALUES);
         MatSetValue(A_pc,ip,ip  ,-diffusion_entry,ADD_VALUES);
 
         //===================== Develop RHS
