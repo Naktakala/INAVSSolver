@@ -21,6 +21,8 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
 
       double V = cell_fv_view->volume;
 
+//      auto& a_P = momentum_coeffs[cell.local_id].a_P;
+
       //=========================================== Map indices
       int ip        = fv_sdm.MapDOF(cell.global_id,&uk_man_p,PRESSURE);
 
@@ -37,7 +39,7 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
       VecGetValues(v_gradp_old,num_dimensions,igradp.data(),&gradp_P(0));
 
       //=========================================== Declare coeficients
-      chi_mesh::Vector3 a_P;
+      chi_mesh::Vector3 a_P_coeff;
 
       //=========================================== Set cell volumes
       for (int dim : dimensions)
@@ -59,15 +61,19 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
           else
             adj_cell = grid->cells[face.neighbor];
 
+//          auto& a_N = momentum_coeffs[adj_cell->local_id].a_P;
+
           //================================== Map indices
+//          int jp = fv_sdm.MapDOF(face.neighbor,&uk_man_p,PRESSURE);
+
           std::vector<int> jgradp(3,-1);
           for (int dim : dimensions)
             jgradp[dim] =
               fv_sdm.MapDOF(face.neighbor,&uk_man_gradp,GRAD_P,dim);
 
           //================================== Get adj-cell values
-          // We are using one-sided assembly so we don't need
-          // the values.
+//          double p_N;
+//          VecGetValues(v_p,1,&jp,&p_N);
 
           //================================== Compute vectors
           chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
@@ -84,11 +90,18 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
           //================================== Compute face value
           double p_f_P = (1.0-rP)*p_P + (1.0-rP)*gradp_P.Dot(PF);
 
-               a_P = a_P + A_f*n*p_f_P;
-          auto a_N = A_f*(-1.0*n)*p_f_P;
+          a_P_coeff      = a_P_coeff + A_f*n*p_f_P;
+          auto a_N_coeff = A_f*(-1.0*n)*p_f_P;
 
           for (auto dim : dimensions)
-            VecSetValue(v_gradp,jgradp[dim],a_N[dim],ADD_VALUES);
+            VecSetValue(v_gradp,jgradp[dim],a_N_coeff[dim],ADD_VALUES);
+
+//          chi_mesh::Vector3 p_avg;
+//          for (auto dim : dimensions)
+//            p_avg(dim) = (p_P / a_P[dim] + p_N / a_N[dim]) /
+//                         (1.0/a_P[dim] + 1.0/a_N[dim]);
+//
+//          a_P_coeff = a_P_coeff + A_f*n*p_avg;
         }//not bndry
         else
         {
@@ -98,12 +111,12 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
           //================================== Compute face value
           double p_b = p_P + gradp_P.Dot(PF);
 
-          a_P = a_P + A_f*n*p_b;
+          a_P_coeff = a_P_coeff + A_f*n*p_b;
         }
       }//for faces
 
       for (auto dim : dimensions)
-        VecSetValue(v_gradp,igradp[dim],a_P[dim],ADD_VALUES);
+        VecSetValue(v_gradp,igradp[dim],a_P_coeff[dim],ADD_VALUES);
     }//for cells
 
     VecAssemblyBegin(v_gradp);

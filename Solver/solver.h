@@ -37,6 +37,11 @@ public:
   const int P_Y = 1;
   const int P_Z = 2;
 
+  const chi_mesh::Vector3 I_HAT = chi_mesh::Vector3(1.0, 0.0, 0.0);
+  const chi_mesh::Vector3 J_HAT = chi_mesh::Vector3(0.0, 1.0, 0.0);
+  const chi_mesh::Vector3 K_HAT = chi_mesh::Vector3(0.0, 0.0, 1.0);
+  const chi_mesh::Vector3 VEC3_ONES = chi_mesh::Vector3(1.0, 1.0, 1.0);
+
 public:
   chi_mesh::MeshContinuum* grid= nullptr;
 public:
@@ -89,20 +94,8 @@ public:
   std::vector<bool> cell_bndry_flags;
   struct CellMomemtumCoefficients
   {
-//    double a_t_m = 0.0;
-//    double a_x_m = 0.0;
-//    double a_y_m = 0.0;
-//    double a_z_m = 0.0;
-//
-//    double b_x = 0.0;
-//    double b_y = 0.0;
-//
-//    std::vector<double> a_x_p;
-//    std::vector<double> a_y_p;
-//    std::vector<double> a_z_p;
-
     chi_mesh::Vector3 a_t;
-    chi_mesh::Vector3 a_P;
+    chi_mesh::Vector3 a_P = chi_mesh::Vector3(1.0,1.0,1.0);
     chi_mesh::Vector3 b_P;
     std::vector<chi_mesh::Vector3> a_N_f;
   };

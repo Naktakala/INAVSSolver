@@ -20,7 +20,7 @@ void INAVSSolver::ComputeGradU()
     auto& cell_mom_coeffs = momentum_coeffs[cell.local_id];
 
     //======================================= Map row indices of unknowns
-    int iu            = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
+    int iu = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
 
     //======================================= Declare H_P coefficients
     chi_mesh::Vector3 H_P;
@@ -110,7 +110,7 @@ void INAVSSolver::ComputeGradU()
 
       if (face.neighbor>=0)
       {
-        chi_mesh::Cell* adj_cell = nullptr;
+        chi_mesh::Cell* adj_cell;
         if (face.IsNeighborLocal(grid))
           adj_cell = &grid->local_cells[face.GetNeighborLocalID(grid)];
         else
