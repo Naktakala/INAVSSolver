@@ -87,12 +87,36 @@ void INAVSSolver::Execute()
       double max_v = 0.0; VecMax(x_u[U_X],NULL,&max_v);
       double max_p = 0.0; VecMax(x_p,NULL,&max_p);
       double min_p = 0.0; VecMin(x_p,NULL,&min_p);
-      double norm_v = 0.0; VecNorm(x_u[U_X],NORM_2,&norm_v);
+      std::vector<double> res_mom_norm(num_dimensions,0.0);
+
+      std::vector<Vec> res_mom(num_dimensions);
+      for (int dim : dimensions)
+      {
+        KSPBuildResidual(lin_solver_u[dim].ksp,NULL,NULL,&res_mom[dim]);
+        VecNorm(res_mom[dim],NORM_2,&res_mom_norm[dim]);
+        VecDestroy(&res_mom[dim]);
+      }
+
 
       char buf[200];
-      sprintf(buf,"Iteration %4d max_v=%.7f max_p=%+.6f "
-                  "min_p=%+.6f norm_v=%.6f", i,
-              max_v,max_p,min_p,norm_v);
+      if (num_dimensions == 2)
+        sprintf(buf,"Iteration %4d max_v=%.7f max_p=%+.6f "
+                    "min_p=%+.6f "
+                    "Residuam Momentum-X=%.6e "
+                    "Residuam Momentum-Y=%.6e",
+                    i, max_v, max_p, min_p,
+                    res_mom_norm[U_X],
+                    res_mom_norm[U_Y]);
+      if (num_dimensions == 3)
+        sprintf(buf,"Iteration %4d max_v=%.7f max_p=%+.6f "
+                    "min_p=%+.6f "
+                    "Residuam Momentum-X=%.6e "
+                    "Residuam Momentum-Y=%.6e "
+                    "Residuam Momentum-Z=%.6e",
+                i, max_v, max_p, min_p,
+                res_mom_norm[U_X],
+                res_mom_norm[U_Y],
+                res_mom_norm[U_Z]);
       log.Log(LOG_0) << chi_program_timer.GetTimeString() << " " << buf;
     }
 

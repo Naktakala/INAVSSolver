@@ -17,25 +17,25 @@ public:
 
   int num_dimensions = 2;
   std::vector<int> dimensions;
-  const unsigned int U_X = 0;
-  const unsigned int U_Y = 1;
-  const unsigned int U_Z = 2;
+  const int U_X = 0;
+  const int U_Y = 1;
+  const int U_Z = 2;
 
-  unsigned int DUX_DX = 0;
-  unsigned int DUX_DY = 1;
-  unsigned int DUX_DZ = -1;
+  int DUX_DX = 0;
+  int DUX_DY = 1;
+  int DUX_DZ = -1;
 
-  unsigned int DUY_DX = 2;
-  unsigned int DUY_DY = 3;
-  unsigned int DUY_DZ = -1;
+  int DUY_DX = 2;
+  int DUY_DY = 3;
+  int DUY_DZ = -1;
 
-  unsigned int DUZ_DX = -1;
-  unsigned int DUZ_DY = -1;
-  unsigned int DUZ_DZ = -1;
+  int DUZ_DX = -1;
+  int DUZ_DY = -1;
+  int DUZ_DZ = -1;
 
-  const unsigned int P_X = 0;
-  const unsigned int P_Y = 1;
-  const unsigned int P_Z = 2;
+  const int P_X = 0;
+  const int P_Y = 1;
+  const int P_Z = 2;
 
 public:
   chi_mesh::MeshContinuum* grid= nullptr;

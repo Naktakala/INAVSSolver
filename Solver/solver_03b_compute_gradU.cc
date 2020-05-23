@@ -36,16 +36,16 @@ void INAVSSolver::ComputeGradU()
         int ju = fv_sdm.MapDOF(face.neighbor, &uk_man_u, VELOCITY);
 
         chi_mesh::Vector3 u_N;
-        for (auto dim : dimensions)
+        for (int dim : dimensions)
           VecGetValues(x_u[dim], 1, &ju, &u_N(dim));
 
-          H_P = H_P - a_N_f*u_N;
+        H_P = H_P - a_N_f*u_N;
       }
     }
 
     chi_mesh::Vector3 u_mim = H_P + cell_mom_coeffs.b_P;
 
-    for (auto dim : dimensions)
+    for (int dim : dimensions)
       VecSetValue(x_umim[dim], iu, u_mim[dim], INSERT_VALUES);
   }//for cells
 
@@ -78,7 +78,7 @@ void INAVSSolver::ComputeGradU()
     std::vector<int> igrad_uy(num_dimensions,-1);
     std::vector<int> igrad_uz(num_dimensions,-1);
 
-    for (auto dim : dimensions)
+    for (int dim : dimensions)
     {
       igrad_ux[dim] = fv_sdm.MapDOF(cell.global_id,&uk_man_gradu,GRAD_U, DUX_DX+dim);
       igrad_uy[dim] = fv_sdm.MapDOF(cell.global_id,&uk_man_gradu,GRAD_U, DUY_DX+dim);
@@ -92,7 +92,7 @@ void INAVSSolver::ComputeGradU()
 
     VecGetValues(x_p,1,&ip,&p_m);
     VecGetValues(x_gradp, num_dimensions, igradp.data(), &gradp_P(0));
-    for (auto dim : dimensions)
+    for (int dim : dimensions)
       VecGetValues(x_umim[dim], 1, &iu, &u_mim_P(dim));
 
     //======================================= Declare grad coefficients
@@ -138,7 +138,7 @@ void INAVSSolver::ComputeGradU()
 
         VecGetValues(x_p,1,&jp_p,&p_p);
         VecGetValues(x_gradp, num_dimensions, jgradp.data(), &gradp_N(0));
-        for (auto dim : dimensions)
+        for (int dim : dimensions)
           VecGetValues(x_umim[dim],1,&j0,&u_mim_N(dim));
 
         //================================== Compute vectors
@@ -169,7 +169,7 @@ void INAVSSolver::ComputeGradU()
         //======================================= Compute face velocities
         chi_mesh::Vector3 u_f = (alpha_u*a_f_inv)*(u_mim_f - V_f * grad_p_f);
 
-        for (auto dim : dimensions)
+        for (int dim : dimensions)
         {
           a_grad_ux(dim) += A_f*n[dim]*u_f[U_X];
           a_grad_uy(dim) += A_f*n[dim]*u_f[U_Y];
@@ -180,7 +180,7 @@ void INAVSSolver::ComputeGradU()
       {
         if (face.normal.Dot(chi_mesh::Vector3(0.0,1.0,0.0))>0.999)
         {
-          for (auto dim : dimensions)
+          for (int dim : dimensions)
           {
             a_grad_ux(dim) += A_f*n[dim]*U;
             a_grad_uy(dim) += A_f*n[dim]*0.0;
@@ -190,7 +190,7 @@ void INAVSSolver::ComputeGradU()
       }//bndry
     }//for faces
 
-    for (auto dim : dimensions)
+    for (int dim : dimensions)
     {
       VecSetValue(x_gradu,igrad_ux[dim],a_grad_ux[dim]/V_P,ADD_VALUES);
       VecSetValue(x_gradu,igrad_uy[dim],a_grad_uy[dim]/V_P,ADD_VALUES);
