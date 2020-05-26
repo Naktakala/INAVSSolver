@@ -30,18 +30,15 @@ void INAVSSolver::Initialize()
   if (num_dimensions == 3)
   {
     DUX_DZ = 2;
-
-    DUY_DX = 3;
-    DUY_DY = 4;
-    DUY_DZ = 5;
-
-    DUZ_DX = 6;
-    DUZ_DY = 7;
-    DUZ_DZ = 8;
+    DUY_DX = 3; DUY_DY = 4; DUY_DZ = 5;
+    DUZ_DX = 6; DUZ_DY = 7; DUZ_DZ = 8;
   }
 
   //======================================== Setup Spatial Discretization
   fv_sdm.AddViewOfLocalContinuum(grid);
+  fv_sdm.AddViewOfNeighborContinuums(grid);
+  fv_sdm.ReOrderNodes(grid);
+
 
   ndof_local_u = fv_sdm.GetNumLocalDOFs(grid ,&uk_man_u);
   ndof_globl_u = fv_sdm.GetNumGlobalDOFs(grid,&uk_man_u);
@@ -55,23 +52,43 @@ void INAVSSolver::Initialize()
   ndof_local_gradu = fv_sdm.GetNumLocalDOFs(grid ,&uk_man_gradu);
   ndof_globl_gradu = fv_sdm.GetNumGlobalDOFs(grid,&uk_man_gradu);
 
+
   log.Log(LOG_0) << "Number of velocity unknowns = "
                  << ndof_globl_u << " " << ndof_globl_gradu;
   log.Log(LOG_0) << "Number of pressure unknowns = "
                  << ndof_globl_p << " " << ndof_globl_gradp;
 
+  log.Log(LOG_0) << "Getting ghost unknowns ";
+  ndof_ghost_u     = fv_sdm.GetNumGhostDOFs(grid ,&uk_man_u);
+  ndof_ghost_p     = fv_sdm.GetNumGhostDOFs(grid ,&uk_man_p);
+  ndof_ghost_gradp = fv_sdm.GetNumGhostDOFs(grid ,&uk_man_gradp);
+  ndof_ghost_gradu = fv_sdm.GetNumGhostDOFs(grid ,&uk_man_gradu);
+  MPI_Barrier(MPI_COMM_WORLD);
+  log.Log(LOG_0) << "Getting ghost ids ";
+  ghost_ids_u     = fv_sdm.GetGhostDOFIndices(grid,&uk_man_u);
+  ghost_ids_p     = fv_sdm.GetGhostDOFIndices(grid,&uk_man_p);
+  ghost_ids_gradp = fv_sdm.GetGhostDOFIndices(grid,&uk_man_gradp);
+  ghost_ids_gradu = fv_sdm.GetGhostDOFIndices(grid,&uk_man_gradu);
+
+  log.Log(LOG_0) << "Number of ghost unknowns u = " << ndof_ghost_u;
+  MPI_Barrier(MPI_COMM_WORLD);
 
 
   //================================= Create matrices and vectors
+  log.Log(LOG_0) << "Creating matrices and vectors.";
   A_u.resize(num_dimensions);
   x_u.resize(num_dimensions);
   x_uold.resize(num_dimensions);
   x_umim.resize(num_dimensions);
+  x_a_P.resize(num_dimensions);
   b_u.resize(num_dimensions);
 
-  for (int i=0; i<num_dimensions; ++i)
-    A_u[i] = chi_math::PETScUtils::CreateSquareMatrix(ndof_local_u,ndof_globl_u);
-  A_pc = chi_math::PETScUtils::CreateSquareMatrix(ndof_local_p,ndof_globl_p);
+  for (int d : dimensions)
+    A_u[d] = chi_math::PETScUtils::
+      CreateSquareMatrix(ndof_local_u,ndof_globl_u);
+
+  A_pc = chi_math::PETScUtils::
+    CreateSquareMatrix(ndof_local_p,ndof_globl_p);
 
   std::vector<int> nz_in_diag_A_u;
   std::vector<int> nz_off_diag_A_u;
@@ -79,35 +96,67 @@ void INAVSSolver::Initialize()
   std::vector<int> nz_in_diag_A_pc;
   std::vector<int> nz_off_diag_A_pc;
 
-  fv_sdm.BuildSparsityPattern(grid,nz_in_diag_A_u,nz_off_diag_A_u, &uk_man_u);
-  fv_sdm.BuildSparsityPattern(grid,nz_in_diag_A_pc,nz_off_diag_A_pc,&uk_man_p);
+  fv_sdm.BuildSparsityPattern(grid,
+                              nz_in_diag_A_u,
+                              nz_off_diag_A_u, &uk_man_u);
+  fv_sdm.BuildSparsityPattern(grid,
+                              nz_in_diag_A_pc,
+                              nz_off_diag_A_pc,&uk_man_p);
 
-  for (int i=0; i<num_dimensions; ++i)
-    chi_math::PETScUtils::InitMatrixSparsity(A_u[i],nz_in_diag_A_u,nz_off_diag_A_u);
-  chi_math::PETScUtils::InitMatrixSparsity(A_pc,nz_in_diag_A_pc,nz_off_diag_A_pc);
+  for (int d : dimensions)
+    chi_math::PETScUtils::InitMatrixSparsity(A_u[d],
+                                             nz_in_diag_A_u,
+                                             nz_off_diag_A_u);
 
-  for (int i=0; i<num_dimensions; ++i)
+  chi_math::PETScUtils::InitMatrixSparsity(A_pc,
+                                           nz_in_diag_A_pc,
+                                           nz_off_diag_A_pc);
+
+  for (int d : dimensions)
   {
-    x_u   [i]  = chi_math::PETScUtils::CreateVector(ndof_local_u,ndof_globl_u);
-    x_uold[i]  = chi_math::PETScUtils::CreateVector(ndof_local_u,ndof_globl_u);
-    x_umim[i]  = chi_math::PETScUtils::CreateVector(ndof_local_u,ndof_globl_u);
-    b_u   [i]  = chi_math::PETScUtils::CreateVector(ndof_local_u,ndof_globl_u);
+    using namespace chi_math::PETScUtils;
+
+    x_u   [d]  = CreateVectorWithGhosts(ndof_local_u,
+                                        ndof_globl_u,
+                                        ndof_ghost_u,
+                                        ghost_ids_u);
+
+    VecDuplicate(x_u[d],&x_uold[d]);
+    VecDuplicate(x_u[d],&x_umim[d]);
+    VecDuplicate(x_u[d],&x_a_P [d]);
+    VecDuplicate(x_u[d],&b_u   [d]);
+  }
+  log.Log(LOG_0) << "Done creating velocity vectors.";
+
+  {
+    using namespace chi_math::PETScUtils;
+
+    x_gradu = CreateVectorWithGhosts(ndof_local_gradu,
+                                     ndof_globl_gradu,
+                                     ndof_ghost_u,
+                                     ghost_ids_gradu);
+
+    x_p     = CreateVectorWithGhosts(ndof_local_p,
+                                     ndof_globl_p,
+                                     ndof_ghost_p,
+                                     ghost_ids_p);
+
+    x_gradp = CreateVectorWithGhosts(ndof_local_gradp,
+                                     ndof_globl_gradp,
+                                     ndof_ghost_gradp,
+                                     ghost_ids_gradp);
+
+    VecDuplicate(x_p,&x_pc);
+    VecDuplicate(x_p,&b_pc);
   }
 
-  x_gradu = chi_math::PETScUtils::CreateVector(ndof_local_gradu,ndof_globl_gradu);
-
-  x_p     = chi_math::PETScUtils::CreateVector(ndof_local_p,ndof_globl_p);
-  x_gradp = chi_math::PETScUtils::CreateVector(ndof_local_gradp,ndof_globl_gradp);
-
-  x_pc    = chi_math::PETScUtils::CreateVector(ndof_local_p,ndof_local_p);
-  b_p     = chi_math::PETScUtils::CreateVector(ndof_local_p,ndof_globl_p);
-
-  for (int i=0; i<num_dimensions; ++i)
+  for (int d : dimensions)
   {
-    VecSet(x_u   [i],0.0);
-    VecSet(x_uold[i],0.0);
-    VecSet(x_umim[i],0.0);
-    VecSet(b_u   [i],0.0);
+    VecSet(x_u   [d],0.0);
+    VecSet(x_uold[d],0.0);
+    VecSet(x_umim[d],0.0);
+    VecSet(x_a_P [d],1.0);
+    VecSet(b_u   [d],0.0);
   }
 
   VecSet(x_gradu,0.0);
@@ -115,14 +164,14 @@ void INAVSSolver::Initialize()
   VecSet(x_p    ,0.0);
   VecSet(x_gradp,0.0);
   VecSet(x_pc   ,0.0);
-  VecSet(b_p    ,0.0);
+  VecSet(b_pc    , 0.0);
 
   //======================================== Setting up linear solvers
   lin_solver_u.resize(num_dimensions);
 
-  for (int i=0; i<num_dimensions; ++i)
-    lin_solver_u[i] = chi_math::PETScUtils::CreateCommonKrylovSolverSetup(
-      A_u[i],            // Reference matrix
+  for (int d : dimensions)
+    lin_solver_u[d] = chi_math::PETScUtils::CreateCommonKrylovSolverSetup(
+      A_u[d],            // Reference matrix
       "Momentum_solver",  // Solver name
       KSPRICHARDSON,        // Solver type
       PCHYPRE,       // Preconditioner type
@@ -140,8 +189,8 @@ void INAVSSolver::Initialize()
 
   if (log.GetVerbosity() == LOG_0VERBOSE_0)
   {
-    for (int i=0; i<num_dimensions; ++i)
-      KSPMonitorCancel(lin_solver_u[i].ksp);
+    for (int d : dimensions)
+      KSPMonitorCancel(lin_solver_u[d].ksp);
     KSPMonitorCancel(lin_solver_p.ksp);
   }
 

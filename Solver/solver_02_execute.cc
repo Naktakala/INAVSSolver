@@ -34,7 +34,7 @@ void INAVSSolver::Execute()
 
     log.LogEvent(tag_gradU,ChiLog::EventType::EVENT_BEGIN);
     if (i>0)
-      ComputeGradU();
+      ComputeGradU2();
     log.LogEvent(tag_gradU,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_BEGIN);
@@ -42,16 +42,20 @@ void INAVSSolver::Execute()
     log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_mom_slv0,ChiLog::EventType::EVENT_BEGIN);
-    KSPSetOperators(lin_solver_u[U_X].ksp,A_u[U_X],A_u[U_X]);
-    KSPSetOperators(lin_solver_u[U_Y].ksp,A_u[U_Y],A_u[U_Y]);
+    for (int dim : dimensions)
+      KSPSetOperators(lin_solver_u[dim].ksp,A_u[dim],A_u[dim]);
     log.LogEvent(tag_mom_slv0,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_BEGIN);
-    KSPSolve(lin_solver_u[U_X].ksp,b_u[U_X],x_u[U_X]);
-    KSPSolve(lin_solver_u[U_Y].ksp,b_u[U_Y],x_u[U_Y]);
+    for (int dim : dimensions)
+      KSPSolve(lin_solver_u[dim].ksp,b_u[dim],x_u[dim]);
     log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_BEGIN);
+    for (int dim : dimensions)
+      VecGhostUpdateBegin(x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
+    for (int dim : dimensions)
+      VecGhostUpdateEnd  (x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
     ComputeMassFlux();
     log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_END);
 
@@ -65,7 +69,10 @@ void INAVSSolver::Execute()
 
     log.LogEvent(tag_pc_slv1,ChiLog::EventType::EVENT_BEGIN);
     VecSet(x_pc,0.0);
-    KSPSolve(lin_solver_p.ksp,b_p,x_pc);
+    KSPSolve(lin_solver_p.ksp, b_pc, x_pc);
+
+    VecGhostUpdateBegin(x_pc,INSERT_VALUES,SCATTER_FORWARD);
+    VecGhostUpdateEnd  (x_pc,INSERT_VALUES,SCATTER_FORWARD);
     log.LogEvent(tag_pc_slv1,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_gradP_pc,ChiLog::EventType::EVENT_BEGIN);
@@ -198,7 +205,7 @@ void INAVSSolver::Execute()
   VecDestroy(&x_p);
 
   VecDestroy(&x_pc);
-  VecDestroy(&b_p);
+  VecDestroy(&b_pc);
 
   for (int i=0; i<num_dimensions; ++i)
     KSPDestroy(&lin_solver_u[i].ksp);

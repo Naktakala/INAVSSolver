@@ -17,60 +17,65 @@ public:
 
   int num_dimensions = 2;
   std::vector<int> dimensions;
-  const int U_X = 0;
-  const int U_Y = 1;
-  const int U_Z = 2;
 
-  int DUX_DX = 0;
-  int DUX_DY = 1;
-  int DUX_DZ = -1;
+  //=================================== Constants
+  unsigned int VELOCITY = 0;
+  unsigned int PRESSURE = 0;
+  unsigned int GRAD_P = 0;
+  unsigned int GRAD_U = 0;
 
-  int DUY_DX = 2;
-  int DUY_DY = 3;
-  int DUY_DZ = -1;
+  const int U_X = 0, U_Y = 1, U_Z = 2;
 
-  int DUZ_DX = -1;
-  int DUZ_DY = -1;
-  int DUZ_DZ = -1;
+  int DUX_DX =  0, DUX_DY =  1, DUX_DZ = -1;
+  int DUY_DX =  2, DUY_DY =  3, DUY_DZ = -1;
+  int DUZ_DX = -1, DUZ_DY = -1, DUZ_DZ = -1;
 
-  const int P_X = 0;
-  const int P_Y = 1;
-  const int P_Z = 2;
+  const int P_X = 0, P_Y = 1, P_Z = 2;
 
   const chi_mesh::Vector3 I_HAT = chi_mesh::Vector3(1.0, 0.0, 0.0);
   const chi_mesh::Vector3 J_HAT = chi_mesh::Vector3(0.0, 1.0, 0.0);
   const chi_mesh::Vector3 K_HAT = chi_mesh::Vector3(0.0, 0.0, 1.0);
   const chi_mesh::Vector3 VEC3_ONES = chi_mesh::Vector3(1.0, 1.0, 1.0);
 
-public:
-  chi_mesh::MeshContinuum* grid= nullptr;
-public:
-  std::vector<Mat> A_u;
-  Mat A_pc;
-
-  std::vector<Vec> x_u;
-  std::vector<Vec> x_uold;
-  std::vector<Vec> x_umim;
-  std::vector<Vec> b_u;
-  Vec x_gradu;
-
-  Vec x_p;
-  Vec x_gradp;
-
-  Vec x_pc;
-  Vec b_p;
-
+  //=================================== Unknown managers
 public:
   chi_math::UnknownManager uk_man_u;
   chi_math::UnknownManager uk_man_p;
   chi_math::UnknownManager uk_man_gradp;
   chi_math::UnknownManager uk_man_gradu;
 
-  unsigned int VELOCITY = 0;
-  unsigned int PRESSURE = 0;
-  unsigned int GRAD_P = 0;
-  unsigned int GRAD_U = 0;
+  //=================================== Grid
+public:
+  chi_mesh::MeshContinuum* grid= nullptr;
 
+  //=================================== PETSc matrices and vectors
+public:
+  // Matrices velocity and pressure
+  std::vector<Mat> A_u;
+  Mat              A_pc;
+
+  // Velocity vectors
+  std::vector<Vec> x_u;
+  std::vector<Vec> x_uold;
+  std::vector<Vec> x_umim;
+  std::vector<Vec> x_a_P;
+  std::vector<Vec> b_u;
+  Vec              x_gradu;
+
+  // Pressure
+  Vec              x_p;
+  Vec              x_gradp;
+
+  // Pressure correction
+  Vec              x_pc;
+  Vec              b_pc;
+
+  //=================================== PETSc Solvers
+public:
+  std::vector<chi_math::PETScUtils::PETScSolverSetup> lin_solver_u;
+  chi_math::PETScUtils::PETScSolverSetup lin_solver_p;
+
+  //=================================== Discretization items
 public:
   SpatialDiscretization_FV fv_sdm;
 
@@ -83,15 +88,19 @@ public:
   unsigned int ndof_local_gradu=0;
   unsigned int ndof_globl_gradu=0;
 
-public:
-  std::vector<chi_math::PETScUtils::PETScSolverSetup> lin_solver_u;
+  unsigned int ndof_ghost_u=0;
+  unsigned int ndof_ghost_p=0;
+  unsigned int ndof_ghost_gradp=0;
+  unsigned int ndof_ghost_gradu=0;
 
-  chi_math::PETScUtils::PETScSolverSetup lin_solver_p;
+  std::vector<int> ghost_ids_u;
+  std::vector<int> ghost_ids_p;
+  std::vector<int> ghost_ids_gradp;
+  std::vector<int> ghost_ids_gradu;
 
+
+  //=================================== Cell momentum coefficients
 public:
-  std::vector<std::vector<double>> mass_fluxes;
-  std::vector<std::vector<double>> bndry_pressures;
-  std::vector<bool> cell_bndry_flags;
   struct CellMomemtumCoefficients
   {
     chi_mesh::Vector3 a_t;
@@ -101,12 +110,20 @@ public:
   };
   std::vector<CellMomemtumCoefficients> momentum_coeffs;
 
+  //=================================== Utilities
+public:
+  std::vector<std::vector<double>> mass_fluxes;
+  std::vector<std::vector<double>> bndry_pressures;
+  std::vector<bool> cell_bndry_flags;
+
+  //=================================== Methods
 public:
   void Initialize();
   void Execute();
 
   void ComputeGradP_GG(Vec v_gradp, Vec v_p);
   void ComputeGradU();
+  void ComputeGradU2();
   void AssembleMomentumSystem();
 
   void ComputeMassFlux();

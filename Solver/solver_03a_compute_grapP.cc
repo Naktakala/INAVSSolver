@@ -4,14 +4,17 @@
 /** Computes the gradient of the pressure.*/
 void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
 {
+  //============================================= Create work vectors
   Vec v_gradp_old;
   Vec v_cell_vols;
   VecDuplicate(v_gradp,&v_gradp_old);
   VecDuplicate(v_gradp,&v_cell_vols);
 
+  //============================================= Compute old gradp-norm
   double fnorm_gradp_old = 0.0;
   VecNorm(v_gradp_old,NORM_2,&fnorm_gradp_old);
 
+  //============================================= Start iterations
   for (int k=0; k<2; ++k)
   {
     VecSet(v_gradp,0.0);
@@ -21,31 +24,29 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
 
       double V = cell_fv_view->volume;
 
-//      auto& a_P = momentum_coeffs[cell.local_id].a_P;
-
-      //=========================================== Map indices
-      int ip        = fv_sdm.MapDOF(cell.global_id,&uk_man_p,PRESSURE);
+      //==================================== Map indices
+      int ip        = fv_sdm.MapDOF(&cell,&uk_man_p,PRESSURE);
 
       std::vector<int> igradp(3,-1);
       for (int dim : dimensions)
         igradp[dim] =
-          fv_sdm.MapDOF(cell.global_id,&uk_man_gradp,GRAD_P,dim);
+          fv_sdm.MapDOF(&cell,&uk_man_gradp,GRAD_P,dim);
 
-      //=========================================== Get cur-cell values
+      //==================================== Get cur-cell values
       double            p_P;
       chi_mesh::Vector3 gradp_P;
 
       VecGetValues(v_p,1,&ip,&p_P);
       VecGetValues(v_gradp_old,num_dimensions,igradp.data(),&gradp_P(0));
 
-      //=========================================== Declare coeficients
+      //==================================== Declare coeficients
       chi_mesh::Vector3 a_P_coeff;
 
-      //=========================================== Set cell volumes
+      //==================================== Set cell volumes
       for (int dim : dimensions)
         VecSetValue(v_cell_vols,igradp[dim],V,INSERT_VALUES);
 
-      //=========================================== Loop over faces
+      //==================================== Loop over faces
       int f=-1;
       for (auto& face : cell.faces)
       {
@@ -53,29 +54,25 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
         double             A_f = cell_fv_view->face_area[f];
         chi_mesh::Vector3& n   = face.normal;
 
+        //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal faces
         if (face.neighbor>=0)
         {
-          chi_mesh::Cell* adj_cell = nullptr;
+          chi_mesh::Cell* adj_cell;
           if (face.IsNeighborLocal(grid))
             adj_cell = &grid->local_cells[face.GetNeighborLocalID(grid)];
           else
             adj_cell = grid->cells[face.neighbor];
 
-//          auto& a_N = momentum_coeffs[adj_cell->local_id].a_P;
-
-          //================================== Map indices
-//          int jp = fv_sdm.MapDOF(face.neighbor,&uk_man_p,PRESSURE);
-
+          //=========================== Map indices
           std::vector<int> jgradp(3,-1);
           for (int dim : dimensions)
             jgradp[dim] =
-              fv_sdm.MapDOF(face.neighbor,&uk_man_gradp,GRAD_P,dim);
+              fv_sdm.MapDOF(adj_cell,&uk_man_gradp,GRAD_P,dim);
 
-          //================================== Get adj-cell values
-//          double p_N;
-//          VecGetValues(v_p,1,&jp,&p_N);
+          //=========================== Get adj-cell values
+          //Not needed since we can do one sided assembly
 
-          //================================== Compute vectors
+          //=========================== Compute vectors
           chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
           chi_mesh::Vector3 PF = face.centroid - cell.centroid;
 
@@ -87,47 +84,44 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
 
           double rP = d_PFi/d_PN;
 
-          //================================== Compute face value
+          //=========================== Compute face value
           double p_f_P = (1.0-rP)*p_P + (1.0-rP)*gradp_P.Dot(PF);
 
           a_P_coeff      = a_P_coeff + A_f*n*p_f_P;
           auto a_N_coeff = A_f*(-1.0*n)*p_f_P;
 
+          //=========================== Set adjacent cell value
           for (auto dim : dimensions)
             VecSetValue(v_gradp,jgradp[dim],a_N_coeff[dim],ADD_VALUES);
-
-//          chi_mesh::Vector3 p_avg;
-//          for (auto dim : dimensions)
-//            p_avg(dim) = (p_P / a_P[dim] + p_N / a_N[dim]) /
-//                         (1.0/a_P[dim] + 1.0/a_N[dim]);
-//
-//          a_P_coeff = a_P_coeff + A_f*n*p_avg;
         }//not bndry
+        //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
         else
         {
-          //================================== Compute vectors
+          //=========================== Compute vectors
           chi_mesh::Vector3 PF = face.centroid - cell.centroid;
 
-          //================================== Compute face value
+          //=========================== Compute face value
           double p_b = p_P + gradp_P.Dot(PF);
 
           a_P_coeff = a_P_coeff + A_f*n*p_b;
         }
       }//for faces
 
+      //==================================== Set vector values
       for (auto dim : dimensions)
         VecSetValue(v_gradp,igradp[dim],a_P_coeff[dim],ADD_VALUES);
     }//for cells
 
+    //======================================== Assemble units
     VecAssemblyBegin(v_gradp);
     VecAssemblyEnd(v_gradp);
-
-    //**************************************************
     VecAssemblyBegin(v_cell_vols);
     VecAssemblyEnd(v_cell_vols);
-    VecPointwiseDivide(v_gradp,v_gradp,v_cell_vols);
-    //**************************************************
 
+    //======================================== Divide v_gradp/V
+    VecPointwiseDivide(v_gradp,v_gradp,v_cell_vols);
+
+    //======================================== Compute iteration info
     double fnorm_gradp = 0.0; VecNorm(v_gradp,NORM_2,&fnorm_gradp);
     double norm_ratio  = 0.0;
 
@@ -141,6 +135,12 @@ void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
     fnorm_gradp_old = fnorm_gradp;
   }//for k iteration
 
+  //============================================= Scatter gradp
+  VecGhostUpdateBegin(v_gradp,INSERT_VALUES,SCATTER_FORWARD);
+  VecGhostUpdateEnd  (v_gradp,INSERT_VALUES,SCATTER_FORWARD);
+
+  //============================================= Destroy work vectors
   VecDestroy(&v_gradp_old);
   VecDestroy(&v_cell_vols);
 }
+
