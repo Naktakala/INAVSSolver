@@ -20,6 +20,10 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
   for (int dim : dimensions)
     VecGhostGetLocalForm(x_a_P[dim],&x_a_PL[dim]);
 
+  std::vector<const double*> d_a_PL(3);
+  for (int dim : dimensions)
+    VecGetArrayRead(x_a_PL[dim],&d_a_PL[dim]);
+
   //============================================= Loop over cells
   for (auto& cell : grid->local_cells)
   {
@@ -28,7 +32,7 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
     double V_P = cell_fv_view->volume;
 
     //====================================== Map row indices of unknowns
-    int iu = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
+    int iu = fv_sdm.MapDOF(&cell,&uk_man_u,VELOCITY);
     int ip = fv_sdm.MapDOF(&cell,&uk_man_p,PRESSURE);
 
     //====================================== Get values
@@ -40,7 +44,7 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
     if (cell.global_id == 0)
     {
       MatSetValue(A_pc,ip,ip,1.0,ADD_VALUES);
-      VecSetValue(b_pc, ip, 0.0, ADD_VALUES);
+      VecSetValue(b_pc,ip,   0.0,ADD_VALUES);
       continue;
     }
 
@@ -55,7 +59,7 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal face
       if (face.neighbor>=0)
       {
-        chi_mesh::Cell* adj_cell = nullptr;
+        chi_mesh::Cell* adj_cell;
         if (face.IsNeighborLocal(grid))
           adj_cell = &grid->local_cells[face.GetNeighborLocalID(grid)];
         else
@@ -66,13 +70,16 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
         double V_N = adj_cell_fv_view->volume;
 
         //============================= Map row indices of unknowns
-        int lj0    = fv_sdm.MapDOFLocal(adj_cell,&uk_man_u,VELOCITY);
-        int jp_p   = fv_sdm.MapDOF(adj_cell,&uk_man_p,PRESSURE);
+        int lju    = fv_sdm.MapDOFLocal(adj_cell,&uk_man_u,VELOCITY);
+        int jp     = fv_sdm.MapDOF(adj_cell,&uk_man_p,PRESSURE);
 
         //============================= Get Values
         chi_mesh::Vector3 a_N;
+
+//        for (int dim : dimensions)
+//          VecGetValues(x_a_PL[dim],1,&lju,&a_N(dim));
         for (int dim : dimensions)
-          VecGetValues(x_a_PL[dim],1,&lj0,&a_N(dim));
+          a_N(dim) = d_a_PL[dim][lju];
 
         //============================= Compute vectors
         chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
@@ -102,7 +109,7 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
         if (face.neighbor == 0)
           VecSetValue(b_pc, ip, -diffusion_entry * 0.0, ADD_VALUES);
         else
-          MatSetValue(A_pc,ip,jp_p, diffusion_entry,ADD_VALUES);
+          MatSetValue(A_pc, ip, jp, diffusion_entry, ADD_VALUES);
         MatSetValue(A_pc,ip,ip  ,-diffusion_entry,ADD_VALUES);
 
         //============================= Develop RHS
@@ -138,6 +145,8 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
   }//for cell
 
   //============================================= Restore local views
+  for (int dim : dimensions)
+    VecRestoreArrayRead(x_a_PL[dim],&d_a_PL[dim]);
   for (int dim : dimensions)
     VecGhostRestoreLocalForm(x_a_P[dim],&x_a_PL[dim]);
 

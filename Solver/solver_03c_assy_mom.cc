@@ -29,6 +29,8 @@ void INAVSSolver::AssembleMomentumSystem()
   //============================================= Get local views
   Vec x_graduL;
   VecGhostGetLocalForm(x_gradu,&x_graduL);
+  const double* d_graduL;
+  VecGetArrayRead(x_graduL,&d_graduL);
 
   //============================================= Loop over cells
   for (auto& cell : grid->local_cells)
@@ -115,8 +117,11 @@ void INAVSSolver::AssembleMomentumSystem()
         //============================= Get neighbor previous iteration values
         std::vector<chi_mesh::Vector3> gradu_N(num_dimensions);
 
-        for (int dim : dimensions)
-          VecGetValues(x_graduL, num_dimensions, ljgrad_u[dim].data(),&(gradu_N[dim])(0));
+//        for (int dim : dimensions)
+//          VecGetValues(x_graduL, num_dimensions, ljgrad_u[dim].data(),&(gradu_N[dim])(0));
+        for (int dimv : dimensions)
+          for (int dim : dimensions)
+            gradu_N[dimv](dim) = d_graduL[ljgrad_u[dimv][dim]];
 
 
         //============================= Compute vectors
@@ -243,6 +248,7 @@ void INAVSSolver::AssembleMomentumSystem()
   }//for cell
 
   //============================================= Restore local views
+  VecRestoreArrayRead(x_graduL,&d_graduL);
   VecGhostRestoreLocalForm(x_gradu,&x_graduL);
 
   //============================================= Assemble matrices globally

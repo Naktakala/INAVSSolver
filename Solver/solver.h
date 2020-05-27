@@ -19,6 +19,9 @@ public:
   std::vector<int> dimensions;
 
   //=================================== Constants
+  const bool COMPUTE_GRADU = true;
+  const bool COMPUTE_MF    = false;
+
   unsigned int VELOCITY = 0;
   unsigned int PRESSURE = 0;
   unsigned int GRAD_P = 0;
@@ -121,12 +124,10 @@ public:
   void Initialize();
   void Execute();
 
-  void ComputeGradP_GG(Vec v_gradp, Vec v_p);
-  void ComputeGradU();
-  void ComputeGradU2();
+  void ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p);
+  void ComputeGradUOrMassFlux(bool no_mass_flux_update=true);
   void AssembleMomentumSystem();
 
-  void ComputeMassFlux();
   void AssemblePressureCorrectionSystem();
   void ComputeCorrections();
 

@@ -39,7 +39,6 @@ void INAVSSolver::Initialize()
   fv_sdm.AddViewOfNeighborContinuums(grid);
   fv_sdm.ReOrderNodes(grid);
 
-
   ndof_local_u = fv_sdm.GetNumLocalDOFs(grid ,&uk_man_u);
   ndof_globl_u = fv_sdm.GetNumGlobalDOFs(grid,&uk_man_u);
 
@@ -121,10 +120,12 @@ void INAVSSolver::Initialize()
                                         ndof_ghost_u,
                                         ghost_ids_u);
 
-    VecDuplicate(x_u[d],&x_uold[d]);
+//    VecDuplicate(x_u[d],&x_uold[d]);
     VecDuplicate(x_u[d],&x_umim[d]);
     VecDuplicate(x_u[d],&x_a_P [d]);
-    VecDuplicate(x_u[d],&b_u   [d]);
+//    VecDuplicate(x_u[d],&b_u   [d]);
+    x_uold[d]  = CreateVector(ndof_local_u,ndof_globl_u);
+    b_u   [d]  = CreateVector(ndof_local_u,ndof_globl_u);
   }
   log.Log(LOG_0) << "Done creating velocity vectors.";
 
@@ -133,7 +134,7 @@ void INAVSSolver::Initialize()
 
     x_gradu = CreateVectorWithGhosts(ndof_local_gradu,
                                      ndof_globl_gradu,
-                                     ndof_ghost_u,
+                                     ndof_ghost_gradu,
                                      ghost_ids_gradu);
 
     x_p     = CreateVectorWithGhosts(ndof_local_p,
@@ -158,13 +159,17 @@ void INAVSSolver::Initialize()
     VecSet(x_a_P [d],1.0);
     VecSet(b_u   [d],0.0);
   }
+  for (int dim : dimensions)
+    VecGhostUpdateBegin(x_a_P[dim],INSERT_VALUES,SCATTER_FORWARD);
+  for (int dim : dimensions)
+    VecGhostUpdateEnd  (x_a_P[dim],INSERT_VALUES,SCATTER_FORWARD);
 
   VecSet(x_gradu,0.0);
 
   VecSet(x_p    ,0.0);
   VecSet(x_gradp,0.0);
   VecSet(x_pc   ,0.0);
-  VecSet(b_pc    , 0.0);
+  VecSet(b_pc   ,0.0);
 
   //======================================== Setting up linear solvers
   lin_solver_u.resize(num_dimensions);
@@ -176,7 +181,7 @@ void INAVSSolver::Initialize()
       KSPRICHARDSON,        // Solver type
       PCHYPRE,       // Preconditioner type
       1.0e-1,       // Residual tolerance
-      5);         // Maximum number of iterations
+      10);         // Maximum number of iterations
 
   lin_solver_p = chi_math::PETScUtils::CreateCommonKrylovSolverSetup(
     A_pc,            // Reference matrix
@@ -185,14 +190,6 @@ void INAVSSolver::Initialize()
     PCHYPRE,       // Preconditioner type
     1.0e-1,       // Residual tolerance
     30);         // Maximum number of iterations
-
-
-  if (log.GetVerbosity() == LOG_0VERBOSE_0)
-  {
-    for (int d : dimensions)
-      KSPMonitorCancel(lin_solver_u[d].ksp);
-    KSPMonitorCancel(lin_solver_p.ksp);
-  }
 
   //======================================== Initialize mass fluxes
   mass_fluxes.clear();

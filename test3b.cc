@@ -6,6 +6,9 @@
 #include "ChiMesh/MeshHandler/chi_meshhandler.h"
 #include "ChiMesh/SurfaceMesher/surfacemesher.h"
 #include "ChiMesh/VolumeMesher/chi_volumemesher.h"
+#include "chi_mpi.h"
+
+extern ChiMPI& chi_mpi;
 
 #include "Solver/solver.h"
 
@@ -36,10 +39,18 @@ int main(int argc, char* argv[])
   int n = N*N;
   chi_mesh::Create2DOrthoMesh(verts,verts);
 
-  mesh_handler->surface_mesher->partitioning_x = 2;
-  mesh_handler->surface_mesher->partitioning_y = 2;
-  mesh_handler->surface_mesher->xcuts.push_back(L/2.0);
-  mesh_handler->surface_mesher->ycuts.push_back(L/2.0);
+  if (chi_mpi.process_count == 4)
+  {
+    mesh_handler->surface_mesher->partitioning_x = 2;
+    mesh_handler->surface_mesher->partitioning_y = 2;
+    mesh_handler->surface_mesher->xcuts.push_back(L/2.0);
+    mesh_handler->surface_mesher->ycuts.push_back(L/2.0);
+  }
+  if (chi_mpi.process_count == 2)
+  {
+    mesh_handler->surface_mesher->partitioning_x = 2;
+    mesh_handler->surface_mesher->xcuts.push_back(L/2.0);
+  }
   mesh_handler->volume_mesher->Execute();
 
 

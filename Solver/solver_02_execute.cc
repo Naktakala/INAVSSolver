@@ -29,12 +29,12 @@ void INAVSSolver::Execute()
   for (int i=0; i<1000; ++i)
   {
     log.LogEvent(tag_gradP_gg,ChiLog::EventType::EVENT_BEGIN);
-    ComputeGradP_GG(x_gradp, x_p);
+    ComputeGradP_GreenGauss(x_gradp, x_p);
     log.LogEvent(tag_gradP_gg,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_gradU,ChiLog::EventType::EVENT_BEGIN);
     if (i>0)
-      ComputeGradU2();
+      ComputeGradUOrMassFlux(COMPUTE_GRADU);
     log.LogEvent(tag_gradU,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_BEGIN);
@@ -47,6 +47,8 @@ void INAVSSolver::Execute()
     log.LogEvent(tag_mom_slv0,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_BEGIN);
+//    for (int dim : dimensions)
+//      VecSet(x_u[dim],0.0);
     for (int dim : dimensions)
       KSPSolve(lin_solver_u[dim].ksp,b_u[dim],x_u[dim]);
     log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_END);
@@ -56,7 +58,8 @@ void INAVSSolver::Execute()
       VecGhostUpdateBegin(x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
     for (int dim : dimensions)
       VecGhostUpdateEnd  (x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
-    ComputeMassFlux();
+//    ComputeMassFlux();
+    ComputeGradUOrMassFlux(COMPUTE_MF);
     log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_pc_assy,ChiLog::EventType::EVENT_BEGIN);
@@ -82,7 +85,7 @@ void INAVSSolver::Execute()
 //    VecGetValues(x_pc,1,&iref,&pref);
 //    VecShift(x_pc,-pref);
 
-    ComputeGradP_GG(x_gradp, x_pc);
+    ComputeGradP_GreenGauss(x_gradp, x_pc);
     log.LogEvent(tag_gradP_pc,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_corr,ChiLog::EventType::EVENT_BEGIN);

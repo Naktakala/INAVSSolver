@@ -2,7 +2,7 @@
 
 //###################################################################
 /** Computes the gradient of the pressure.*/
-void INAVSSolver::ComputeGradP_GG(Vec v_gradp, Vec v_p)
+void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
 {
   //============================================= Create work vectors
   Vec v_gradp_old;

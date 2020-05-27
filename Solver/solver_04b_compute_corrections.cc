@@ -20,6 +20,14 @@ void INAVSSolver::ComputeCorrections()
   VecGhostGetLocalForm(x_gradp,&x_gradpL);
   VecGhostGetLocalForm(x_pc,&x_pcL);
 
+  std::vector<const double*> d_a_PL(3);
+  const double* d_gradpL;
+  const double* d_pcL;
+  for (int dim : dimensions)
+    VecGetArrayRead(x_a_PL[dim],&d_a_PL[dim]);
+  VecGetArrayRead(x_pcL,&d_pcL);
+  VecGetArrayRead(x_gradpL,&d_gradpL);
+
   //============================================= Loop over cells
   for (auto& cell : grid->local_cells)
   {
@@ -43,7 +51,7 @@ void INAVSSolver::ComputeCorrections()
     VecGetValues(x_pc,1,&ip,&p_P);
     VecGetValues(x_gradp, num_dimensions, igradp.data(), &gradp_P(0));
     for (int dim : dimensions)
-      VecGetValues(x_a_P[dim] , 1, &iu, &a_P(dim));
+      VecGetValues(x_a_P[dim],1,&iu,&a_P(dim));
 
     //====================================== Declare velocity correction
     chi_mesh::Vector3 uc;
@@ -79,10 +87,17 @@ void INAVSSolver::ComputeCorrections()
         chi_mesh::Vector3 gradp_N;
         chi_mesh::Vector3 a_N;
 
-        VecGetValues(x_pcL, 1, &ljp, &p_N);
-        VecGetValues(x_gradpL,num_dimensions,ljgradp.data(),&gradp_N(0));
+//        VecGetValues(x_pcL, 1, &ljp, &p_N);
+//        VecGetValues(x_gradpL,num_dimensions,ljgradp.data(),&gradp_N(0));
+//        for (int dim : dimensions)
+//          VecGetValues(x_a_PL[dim] ,1,&lj0,&a_N(dim));
+
+        p_N = d_pcL[ljp];
         for (int dim : dimensions)
-          VecGetValues(x_a_PL[dim] ,1,&lj0,&a_N(dim));
+        {
+          gradp_N(dim) = d_gradpL[ljgradp[dim]];
+          a_N    (dim) = d_a_PL[dim][lj0];
+        }
 
 
         //============================= Compute vectors
@@ -145,15 +160,20 @@ void INAVSSolver::ComputeCorrections()
 
   //============================================= Restore local view
   for (int dim : dimensions)
+    VecRestoreArrayRead(x_a_PL[dim],&d_a_PL[dim]);
+  VecRestoreArrayRead(x_pcL,&d_pcL);
+  VecRestoreArrayRead(x_gradpL,&d_gradpL);
+
+  for (int dim : dimensions)
     VecGhostRestoreLocalForm(x_a_P[dim],&x_a_PL[dim]);
   VecGhostRestoreLocalForm(x_gradp,&x_gradpL);
   VecGhostRestoreLocalForm(x_pc,&x_pcL);
 
   //============================================= Assemble x_u
-  for (int i=0; i<num_dimensions; ++i)
+  for (int dim : dimensions)
   {
-    VecAssemblyBegin(x_u[i]);
-    VecAssemblyEnd(x_u[i]);
+    VecAssemblyBegin(x_u[dim]);
+    VecAssemblyEnd(x_u[dim]);
   }
   VecAXPY(x_p,alpha_p,x_pc);
 
