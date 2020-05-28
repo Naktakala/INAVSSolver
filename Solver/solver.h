@@ -19,6 +19,7 @@ public:
   std::vector<int> dimensions;
 
   //=================================== Constants
+  const double TWO_THIRDS = 2.0/3.0;
   const bool COMPUTE_GRADU = true;
   const bool COMPUTE_MF    = false;
 
@@ -29,6 +30,7 @@ public:
 
   const int U_X = 0, U_Y = 1, U_Z = 2;
 
+  //=================================== Dyad to linear indexing
   int DUX_DX =  0, DUX_DY =  1, DUX_DZ = -1;
   int DUY_DX =  2, DUY_DY =  3, DUY_DZ = -1;
   int DUZ_DX = -1, DUZ_DY = -1, DUZ_DZ = -1;

@@ -96,6 +96,8 @@
 
 \newcommand{\bnabla}{\boldsymbol{\nabla}}
 \newcommand{\bvel}{\mathbf{u}}
+\newcommand{\pluseq}{\mathrel{+}=}
+\newcommand{\asteq}{\mathrel{*}=}
 	
 
 %=================== Settings
@@ -191,7 +193,7 @@ where $\rho$ is the fluid density, $\bvel$ is the fluid velocity vector with com
 Conversion of momentum:
 \beqn
 \frac{\partial(\rho \bvel)}{dt} 
-+ \bnabla \bigcdot \{ \rho \bvel \otimes \bvel \}
++ \bnabla \bigcdot ( \rho \bvel \otimes \bvel )
 =  \mathbf{f} -\bnabla p
 + \bnabla \bigcdot \boldsymbol{\tau} 
 \eeqn
@@ -249,11 +251,11 @@ or more compactly
 
 \subsection{Tensors}
 \subsubsection{Tensor product of two vectors, $\mathbf{a}\otimes \mathbf{b}$}
-In many textbooks the general notation $\{\bvel \bvel\}$ or $\{ \bnabla \bvel \}$ is adopted which might not be intuitive to scholars unfamiliar with tensors. In this notation the $\{\}$ indicates that the terms within form a tensor. The more technically correct representation would be the \textbf{tensor product notation} where we take the tensor product of two vectors, i.e. $\mathbf{a}$ and $\mathbf{b}$, both of the same dimension $N$, resulting in tensor of order $2$, as
+Also called the dyadic product. In many textbooks the general notation $\{\bvel \bvel\}$ or $\{ \bnabla \bvel \}$ is adopted which might not be intuitive to scholars unfamiliar with tensors. In this notation the $\{\}$ indicates that the terms within forms a tensor. The more technically correct representation would be the \textbf{tensor product notation} where we take the tensor product of two vectors, i.e., $\mathbf{a}$ and $\mathbf{b}$, both of the same dimension $N$, resulting in tensor of order $2$, as
 
 \beqn 
 \{\mathbf{a} \mathbf{b} \} = 
-\{\mathbf{a} \otimes \mathbf{b} \}
+\mathbf{a} \otimes \mathbf{b} 
 =
 \begin{bmatrix}
 a_0 \\ a_1 \\ \vdots \\ a_{N-1}
@@ -273,10 +275,25 @@ a_{N-1} b_0 & a_{N-1} b_1 & \hdots & a_{N-1} b_{N-1} \\
 \newline 
 Note here that the ``order" of the tensor is also sometimes referred to as the tensor's rank. A simple definition of ``rank" is the number of indices in a given dimension required to address the components of a tensor. Therefore the above tensor has dimension $N$ and rank $2$. A scalar has dimension $1$ rank $0$ because we do not need any index, and a vector has dimension $N$ and rank $1$ because we only need a single index. In fluid mechanics we mostly deal with tensors of rank $2$.
 
+\subsubsection{Vector inverse, $\mathbf{a}^{-1}$}
+There is not a common notation for taking the component-wise inverse of a vector, however, the notation $\mathbf{a}^{-1}$ will be used to denote
+
+\beqn
+\mathbf{a}^{-1} = 
+\begin{bmatrix}
+\frac{1}{a_0} \\
+\frac{1}{a_1} \\
+\vdots  \\
+\frac{1}{a_{N-1}}
+\end{bmatrix}
+\eeqn 
+
 \subsubsection{Component-wise multiplication of vectors, $\mathbf{a}\mathbf{b}$}
-The tensor product notation is also sometimes confusingly mixed with component-wise multiplication (i.e. $\mathbf{a}\mathbf{b}$ vs $\{ \mathbf{a}\mathbf{b} \}$ ), however the component-wise multiplication is
+Also called the Hadamard-product which is the component-wise multiplication of two vectors or two matrices, where both operands need to be the same size. The notation for a Hadamard-product is the symbol $\circ$ or $\odot$. The tensor product notation is also sometimes confusingly mixed with component-wise multiplication (i.e., $\mathbf{a}\mathbf{b}$ vs $\{ \mathbf{a}\mathbf{b} \}$ ), however the component-wise multiplication is
 \beqn
 \mathbf{a}\mathbf{b} = 
+\mathbf{a} \circ \mathbf{b} = 
+\mathbf{a} \odot \mathbf{b} = 
 \begin{bmatrix}
 a_0 b_0 \\
 a_1 b_1 \\
@@ -286,10 +303,11 @@ a_{N-1}b_{N-1}
 \eeqn
 
 \subsubsection{Component-wise division of vectors, $\mathbf{a}^{-1}\mathbf{b}$}
-Another instance of this type of component-wise operation is the use of a vector-inverse, $\mathbf{a}^{-1}\mathbf{b}$, or simply written as division, $\mathbf{b}/\mathbf{a}$, in which case
+Also called Hadamard division where again both operands need to be of the same size. This is another instance of component-wise operations and involves the use of a vector-inverse, $\mathbf{a}^{-1}\mathbf{b}$, or simply written as division, $\mathbf{b}/\mathbf{a}$, in which case
 \beqn
 \mathbf{a}^{-1}\mathbf{b} =
 \mathbf{b}/\mathbf{a} =  
+\mathbf{b} \oslash \mathbf{a} =
 \begin{bmatrix}
 b_0/a_0  \\
 b_1/a_1 \\
@@ -388,16 +406,14 @@ a_0 b_{N-1} c_0 & a_1 b_{N-1} c_1 & \hdots & a_{N-1}  b_{N-1} c_{N-1} \\
 \newline 
 The usefulness of this will be made clearer in later sections.
 
-\subsubsection{Divergence of a vector given its gradient, $\bnabla \bullet \mathbf{a} = \mathbb{1}\bullet \biggr ((\bnabla \mathbf{a}) (\sum_j \mathbf{b}_j) \biggr )$}
-Programatically the divergence of vector-quantity can easily be obtained by accessing the elements of the gradient tensor, $\bnabla \mathbf{a}_{00}$, $\bnabla \mathbf{a}_{11}$ and $\bnabla \mathbf{a}_{22}$. Mathematically it can be written as
+\subsubsection{Divergence of a vector given its gradient, $\bnabla \bullet \mathbf{a} = \mathbb{1} \ \bullet \ \text{diag}(\bnabla \mathbf{a})$}
+Programatically the divergence of vector-quantity can easily be obtained by accessing the diagonal elements of the gradient tensor, $\bnabla \mathbf{a}_{00}$, $\bnabla \mathbf{a}_{11}$ and $\bnabla \mathbf{a}_{22}$. Mathematically it can be written as
 
 \beqn 
-\bnabla \bullet \mathbf{a} = \mathbb{1}\bullet \biggr ((\bnabla \mathbf{a}) (\sum_j \mathbf{b}_j) \biggr )
+\bnabla \bullet \mathbf{a} = \mathbb{1} \ \bullet \ \text{diag}(\bnabla \mathbf{a})
 \eeqn 
 
-where $\mathbf{b}_j$ are the basis-vectors of vector $\mathbf{a}$, and $\mathbb{1}$ is a vector of ones with the same dimension as $\mathbf{a}$. For cartesian coordinates these bases are $\mathbf{i}$, $\mathbf{j}$ and $\mathbf{k}$.
-
-\newpage
+\vspace{1cm}
 \subsection{Unstructured meshes and the treatment of certain quantities}
 This section is meant to clarify some items found in a useful paper by Sezai \cite{Sezai} which deals with unstructured meshes and the finite volume method. Figure \ref{fig:faceaverages} below contains a graphic depiction of unstructured 2D cells which we will use to define numerous concepts.
 
@@ -415,11 +431,11 @@ $,
 and $\mathbf{F}_i = \mathbf{P} + d_{PF_i}  \ \mathbf{e}_{PN}$.
 
 
-\subsubsection{Linear interpolation of a quantity $\phi$ to a face}
+\subsubsection{Linear interpolation of a quantity $\phi$ to a face, option 1}
 A linear interpolation of any quantity $\phi$, to find $\phi_{f_i}$, can be determined by defining $r_P = \frac{d_{PF_i}}{d_{PN}}$ from which 
-\beq
+\beqn \label{eq:linear_interpolation_nocorr}
 \phi_{f_i} &= (1-r_P) \phi_P + (r_P)\phi_N.
-\eeq
+\eeqn
 This is however not the desired value at the cell centroid, i.e. $\phi_f$. To correct for this we can linearly interpolate the gradient of $\phi$ to $\mathbf{F}_i$ and extend towards $\mathbf{F}$ as
 \beq 
 \bnabla \phi_{f_i} = (1-r_P) \bnabla \phi_P + (r_P)\bnabla \phi_N
@@ -429,66 +445,47 @@ using the vector from $\mathbf{F}_i$ to $\mathbf{F}$, $\mathbf{F_iF}$, to get
 \phi_f \approx \phi_{f_i}
 + \bnabla \phi_{f_i} \bigcdot \mathbf{F_iF}
 \eeqn
-which will often be used in the sections that follow.
+which can be used for the interpolation of the pressure and/or temperature. Note however, that this form is not suitable for the interpolation of the velocity, which requires special treatment.
 
-\subsubsection{Linear interpolation of gradient quantities}
-The linear interpolation of a gradient in a collocated scheme can be computed using two components across a face. The first is the component formed by $\phi_P$ and $\phi_N$. The second is by the larger stencil formed from $\bnabla \phi_P$ and $\bnabla \phi_N$.
+\subsubsection{Linear interpolation of a quantity $\phi$ to a face, option 2}
+For quantities that are not very sensitive to variation in the direction of the face skewness, i.e., fluid viscosity, $\mu$, fluid density, $\rho$, and thermal conductivity, $k$, one can apply a less accurate, but still suitable interpolation, by neglecting the gradients and using the normal distance to the face. This requires $r_f$ defined as
+\beqn 
+r_f = \frac{
+\mathbf{PF} \bigcdot \mathbf{n}
+}{
+\mathbf{PF} \bigcdot \mathbf{n} +
+\mathbf{FN} \bigcdot \mathbf{n}
+}
+\eeqn 
 
-\beq
-\bnabla \phi_f 
-= \frac{ \phi_N - \phi_N }{d_{PN}}\cdot \mathbf{e}_{PN}
-+ (\overline{\bnabla \phi_f})_\perp
-\eeq
-\newline
-In this formulation the discrete gradient ($ \frac{ \phi_N - \phi_N }{d_{PN}}\cdot \mathbf{e}_{PN}$) along $\mathbf{PN}$ is augmented by a perpendicular component taken from $\overline{\bnabla \phi_f}$, which is computed using \eqref{eq:linear_interpolation}. The parallel and perpendicular components of $\overline{\bnabla \phi_f}$ are
-
-\beq 
-\overline{\bnabla \phi_f} &= (\overline{\bnabla \phi_f})_\perp + 
-\biggr(
-\overline{\bnabla \phi_f } \ \bigcdot \ \mathbf{e}_{PN}
-\biggr) \cdot \ \mathbf{e}_{PN}
-\\
-\therefore
-(\overline{\bnabla \phi_f})_\perp 
-&=
-\overline{\bnabla \phi_f} 
- \ - \ 
-\biggr(
-\overline{\bnabla \phi_f } \ \bigcdot \ \mathbf{e}_{PN}
-\biggr) \cdot \ \mathbf{e}_{PN}
-\eeq  
-
-which gives us
-
-\beqn \label{eq:linear_interp_gradient}
-\bnabla \phi_f 
-= \frac{ \phi_N - \phi_N }{d_{PN}}\cdot \mathbf{e}_{PN}
-+ \overline{\bnabla \phi_f} 
- \ - \ 
-\biggr(
-\overline{\bnabla \phi_f } \ \bigcdot \ \mathbf{e}_{PN}
-\biggr) \cdot \ \mathbf{e}_{PN}
+which can then be used to linearly interpolated quantities as
+\beqn \label{eq:linear_interpolation_nocorr2}
+\phi_{f_i} &= (1-r_f) \phi_P + (r_f)\phi_N.
 \eeqn
 
 \subsubsection{Computing gradients}
-There are different methods for computing gradients of the form $\bnabla \phi$. We will detail different methods.
-
+There are different methods for computing gradients of the form $\bnabla \phi$. 
+\newline
+\newline
 \textbf{Green-Gauss:}\newline
+This formulation is identical to ``Option 3" of chapter 9.2 in the book by Moukalled et al. \cite{MMD}.
 The first order Green-Gauss approximation reduces essentially to a summation over faces.
 
-\beq 
+\beqn \label{eq:gradient_gg} 
 \bnabla \phi = \frac{1}{V} \sum_f \mathbf{A}_f \phi_f
-\eeq 
+\eeqn 
 
 where $\phi_f$ is taken as a linear interpolation between the adjoining face's cells. This formulation poses some challenges when undetermined faces fluxes are encountered, as is the case with boundaries and unstructured meshes, and therefore we require an algorithm to compensate. Therefore the following algorithm is applied:
 
 \begin{enumerate}
 \item Assume $\bnabla \phi^{(n-1)} = 0$
-\item Compute $\bnabla \phi^{(n)}$ over the entire domain using $\frac{1}{V}\sum_f \mathbf{A}_f \phi_f$ where $\phi_f$ is computed from
+\item Compute $\bnabla \phi^{(n)}$ over the entire domain using $\frac{1}{V}\sum_f \mathbf{A}_f \phi_f$ where $\phi_f$ is computed from \eqref{eq:linear_interpolation} as
 \beq
 \phi_f &= 
-(1-r_P) \biggr ( \phi_P +  \bnabla \phi_P^{(n-1)} \bigcdot \mathbf{PF} \biggr )
-\ + \ (r_P) \biggr ( \phi_N + \bnabla \phi_N^{(n-1)} \bigcdot \mathbf{NF} \biggr )
+(1-r_P) \phi_P + (r_P)\phi_N + 
+\biggr [
+(1-r_P) \bnabla \phi_P + (r_P)\bnabla \phi_N
+\biggr ]^{(n-1)} \bigcdot \mathbf{F_iF}
 \eeq 
 and boundary faces are computed as
 \beq 
@@ -505,7 +502,7 @@ and boundary faces are computed as
 TBC  
 
 \subsubsection{Flux of a gradient}
-A diffusion quantity that often arises in unstructured meshes is $\mathbf{A}_f \bigcdot (\bnabla \phi)_f$, where $\mathbf{A}_f$ is the area vector formed by the face area $A_f$ and its normal $n$ as $\mathbf{A}_f = A_f \mathbf{n}$. When we deal with skewed faces, this diffusion  term needs some treatment. In general, since the face is skewed, the flux into cell develops additional components other than the orthogonal component along the direction of $\mathbf{PN}$.  These additional components are not intuitive to understand and the paper by Sezai \cite{Sezai} lacks explanation of some of the items in its graphical illustrations. Refer to Figure \ref{fig:faceaveragesskewed} for the following discussion.
+A diffusion quantity that often arises in unstructured meshes is $\mathbf{A}_f \bigcdot (\bnabla \phi)_f$, where $\mathbf{A}_f$ is the area vector formed by the face area $A_f$ and its normal $n$ as $\mathbf{A}_f = A_f \mathbf{n}$. When we deal with skewed faces, this diffusion  term needs some treatment. In general, since the face is skewed, the flux at the cell face develops additional components other than the orthogonal component along the direction of $\mathbf{PN}$.  These additional components are not intuitive to understand and the paper by Sezai \cite{Sezai} lacks explanation of some of the items in its graphical illustrations. Refer to Figure \ref{fig:faceaveragesskewed} for the following discussion.
 
 \begin{figure}[H]
 \centering
@@ -531,14 +528,14 @@ where $\mathbf{F_iF}$ is the vector from $\mathbf{F}_i$ to $\mathbf{F}$ and the 
 \mathbf{A}_f \bigcdot (\bnabla \phi)_f 
 \biggr)_p
 &=
-\frac{A_d}{d_{PN}} \biggr ( \phi_{N'} - \phi_{P'} \biggr)
+\frac{A_p}{d_{PN}} \biggr ( \phi_{N'} - \phi_{P'} \biggr)
 \\
-&= \frac{A_d}{d_{PN}} \biggr ( \phi_{N} - \phi_{P} \biggr)
-+  \frac{ A_d }{d_{PN}} \biggr ( (\bnabla \phi)_N  -  (\bnabla \phi)_P \biggr)^{(n-1)}
+&= \frac{A_p}{d_{PN}} \biggr ( \phi_{N} - \phi_{P} \biggr)
++  \frac{ A_p }{d_{PN}} \biggr ( (\bnabla \phi)_N  -  (\bnabla \phi)_P \biggr)^{(n-1)}
 \ \bigcdot \mathbf{F_iF} 
 \eeq 
 \newline 
-where $A_d = A_f / (\mathbf{e}_{PN} \bigcdot \mathbf{n})$. Secondly, the tangential component can be computed from \eqref{eq:linear_interpolation}.
+where $A_p = A_f / (\mathbf{e}_{PN} \bigcdot \mathbf{n})$. Secondly, the tangential component can be computed from \eqref{eq:linear_interpolation}.
 
 \beq 
 \biggr (
@@ -549,21 +546,20 @@ where $A_d = A_f / (\mathbf{e}_{PN} \bigcdot \mathbf{n})$. Secondly, the tangent
 &\approx  (\bnabla \phi)_{F_i}^{(n-1)} \bigcdot \mathbf{A}_t
 \eeq 
 \newline
-where $\mathbf{A}_t = \mathbf{A}_f - A_d \mathbf{e}_{PN}$ and the gradient at the face centroid is approximated by the gradient interpolated at $\mathbf{F}_i$ which is not an unreasonable approximation considering that cell skewness is normally minimized. This interpolation is done according to 
-\newline
-\newline 
+where $\mathbf{A}_t = \mathbf{A}_f - A_p \mathbf{e}_{PN}$ and the gradient at the face centroid is approximated by the gradient interpolated at $\mathbf{F}_i$ which is not an unreasonable approximation considering that cell skewness is normally minimized. 
 Putting it all together we have
 
 \beqn \label{eq:flux_of_gradient}
 \mathbf{A}_f \bigcdot (\bnabla \phi)_f 
 =
- \frac{A_d}{d_{PN}} \biggr ( \phi_{N} - \phi_{P} \biggr)
-+  \frac{ A_d }{d_{PN}} \biggr ( (\bnabla \phi)_N  -  (\bnabla \phi)_P \biggr)^{(n-1)}
+ \frac{A_p}{d_{PN}} \biggr ( \phi_{N} - \phi_{P} \biggr)
++  \frac{ A_p }{d_{PN}} \biggr ( (\bnabla \phi)_N  -  (\bnabla \phi)_P \biggr)^{(n-1)}
 \ \bigcdot \mathbf{F_iF} 
 +
  (\bnabla \phi)_{F_i}^{(n-1)} \bigcdot \mathbf{A}_t
 \eeqn 
-
+\newline
+This equation appears in the momentum equation as well as the pressure correction equation for the SIMPLE method.
 
 
 
@@ -576,14 +572,14 @@ Putting it all together we have
 \newpage 
 \section{Discretization of the momentum equation}
 We start our derivations with the conservation of momentum equation where the non-linear convective term, 
-$\bnabla\bigcdot \{ \rho \bvel \otimes \bvel \} $, has been linearized through the use of the velocity at a previous iteration $(n-1)$, and the time derivative has been taken as linearly changing from timestep $(t-1)$,
+$\bnabla\bigcdot ( \rho \bvel \otimes \bvel ) $, has been linearized through the use of the velocity at a previous iteration $(n-1)$, and the time derivative has been taken as linearly changing from timestep $(t-1)$,
 
 
 \beq
 \rho \frac{\bvel - \bvel^{(t-1)}}{\Delta t} 
-+ \bnabla \bigcdot \{ \rho \bvel^{(n-1)} \otimes \bvel \}
-\ - \ \bnabla \bigcdot \{ \mu \bnabla \bvel \} - \bnabla \bigcdot  \{ \mu (\bnabla \bvel)^T \}
-&= -\bnabla p
++ \bnabla \bigcdot ( \rho \bvel^{(n-1)} \otimes \bvel )
+\ - \ \bnabla \bigcdot \{ \mu \bnabla \bvel \} 
+&= -\bnabla p + \bnabla \bigcdot  \{ \mu (\bnabla \bvel)^T \}
 \ - \ \frac{2}{3}\bnabla \cdot (\mu \bnabla \bigcdot \bvel^{(n-1)})
 + \mathbf{f}.
 \eeq
@@ -591,123 +587,53 @@ $\bnabla\bigcdot \{ \rho \bvel \otimes \bvel \} $, has been linearized through t
 Next we integrate this equation over a given cell's volume and apply Gauss' divergence theorem. We then also convert surface integrals to sum over areas of the faces. In the latter process we combine the area of a face, $A_f$, with its associated normal, $\mathbf{n}_f$, and introduce the area vector, $\mathbf{A}_f = A_f \mathbf{n}_f$,
 
 \beq 
-\frac{\rho V_c}{\Delta t} (\bvel - \bvel^{(t-1)})
-&+ \int_S \mathbf{n} \bigcdot \{ \rho \bvel \otimes \bvel^{(n-1)} \}.dA
-\ - \ \int_S \mathbf{n} \bigcdot \{ \mu \bnabla \bvel \}.dA 
-- \int_S \mathbf{n} \bigcdot  \{ \mu (\bnabla \bvel)^T \}.dA \\
-&= -\int_S \mathbf{n} \cdot p.dA
+\frac{\rho_P V_P}{\Delta t} (\bvel - \bvel^{(t-1)})
+&+ \int_S \mathbf{n} \bigcdot ( \rho \bvel \otimes \bvel^{(n-1)} ).dA
+\ - \ \int_S \mathbf{n} \bigcdot \{ \mu \bnabla \bvel \}.dA \\
+&= -V_P (\bnabla p)^{(n-1)}
++ \int_S \mathbf{n} \bigcdot  \{ \mu (\bnabla \bvel)^T \}^{(n-1)}.dA 
 \ - \ \frac{2}{3}\int_S \mathbf{n} \cdot (\mu \bnabla \bigcdot \bvel^{(n-1)}).dA
-+ V_c \mathbf{f}
-\\
-\frac{\rho V_c}{\Delta t} (\bvel - \bvel^{(t-1)})
-&+ \sum_f \biggr ( \rho_f \mathbf{A}_f \bigcdot \bvel_f^{(n-1)} \biggr ) \bvel_f
-\ - \ \sum_f \mathbf{A}_f \bigcdot \{ \mu \bnabla \bvel \}_f
-- \sum_f \mathbf{A}_f \bigcdot  \{ \mu (\bnabla \bvel)^T \}_f \\
-&= -\sum_f \mathbf{A}_f \cdot p_f
-\ - \ \frac{2}{3}\sum_f \mathbf{A}_f \cdot (\mu \bnabla \bigcdot \bvel^{(n-1)})_f
-+ V_c \mathbf{f}
++ V_P \mathbf{f}
 \eeq 
+and after application of Green's theorem,
 \beqn 
-\frac{\rho V_c}{\Delta t} (\bvel - \bvel^{(t-1)})
+\therefore
+\frac{\rho_P V_P}{\Delta t} \bvel 
 &+ \sum_f   \dot{m}_f^{(n-1)}  \bvel_f
-\ - \ \sum_f \mathbf{A}_f \bigcdot \{ \mu \bnabla \bvel \}_f
-- \sum_f \mathbf{A}_f \bigcdot  \{ \mu (\bnabla \bvel)^T \}_f \\
-&= -\sum_f \mathbf{A}_f \cdot p_f
+\ - \ \sum_f \mathbf{A}_f \bigcdot \{ \mu \bnabla \bvel \}_f \\
+&=-V_P (\bnabla p)^{(n-1)}
++ \sum_f \mathbf{A}_f \bigcdot  \{ \mu (\bnabla \bvel)^T \}_f^{(n-1)} 
 \ - \ \frac{2}{3}\sum_f \mathbf{A}_f \cdot (\mu \bnabla \bigcdot \bvel^{(n-1)})_f
-+ V_c \mathbf{f}.
++\frac{\rho_P V_P}{\Delta t} \bvel^{(t-1)}
++ V_P \mathbf{f}.
 \eeqn
 \newline 
-Note here that we used the definition $\mathbf{a} \bigcdot \{\mathbf{b} \otimes \mathbf{c}\} = (\mathbf{a} \bigcdot \mathbf{c} )\mathbf{b}$, defined in the tools section, to get
+Note here that we used the property $\mathbf{a} \bigcdot ( \mathbf{b} \otimes \mathbf{c}) = (\mathbf{a} \bigcdot \mathbf{c} )\mathbf{b}$, defined in the tools section, to get
 \beq
-\int_S \mathbf{n} \bigcdot \{ \rho \bvel \otimes \bvel^{(n-1)} \}.dA 
+\int_S \mathbf{n} \bigcdot ( \rho \bvel \otimes \bvel^{(n-1)} ).dA 
 &= 
 \int_S \biggr ( \mathbf{n} \bigcdot (\rho\bvel^{(n-1)}) \biggr )  \bvel.dA \\
 &=
-\sum_f \biggr ( \rho_f \mathbf{A}_f \bigcdot \bvel_f^{(n-1)} \biggr ) \bvel_f
+\sum_f \biggr ( \rho_f \mathbf{A}_f \bigcdot \bvel_f^{(n-1)} \biggr ) \bvel_f \\
+&=
+\sum_f \dot{m}_f^{(n-1)} \bvel_f \\
 \eeq 
-We now require expressions for the face terms $\dot{m}_f^{(n-1)} \bvel_f$, $\{ \mu \nabla \bvel\}_f$, $\{ \mu (\nabla \bvel)^T\}_f$, $(\mu \bnabla \bigcdot \bvel^{(n-1)})_f$, and $p_f^{(n-1)}$. In all the sub-sections that follow we will be working with a known mass flow rate $\dot{m}_f = \rho \mathbf{A}_f \bigcdot \bvel_f^{(\ell-1)} $ which will be assumed zero at the start of the simulation but will be updated and stored later.
 
-\subsection{Material properties at faces, $\rho_f$ and $\mu_f$}
-Material properties are generally not as rapidly varying as the pressure or velocity and therefore we linearly interpolate these values without the correction term specified in \eqref{eq:linear_interpolation}. Therefore,
-\beqn
-\rho_f = (1-r_P)\rho_P + (r_P)\rho_N 
-\eeqn
-\beqn
-\mu_f = (1-r_P)\mu_P + (r_P)\mu_N 
-\eeqn
-
-\subsection{Face convection term, $\dot{m}_f^{(n-1)} \bvel_f $ }
-
-The face convective term is taken from a second-order upwind scheme. This is achieved by considering the upstream face velocity as $\bvel_f^U$ as pertaining to the associated upstream cell (either the present cell or the neighbor cell) as captured by
-
-\beqn 
-\dot{m}_f^{(n-1)} \bvel_f^U &= 
-\text{max}\biggr ( 
-\dot{m}_f^{(n-1)},0.0
-\biggr ) \bvel^P +
-\text{min}\biggr ( 
-\dot{m}_f^{(n-1)},0.0
-\biggr ) \bvel^N \\
-&\quad + \ \dot{m}_f^{(n-1)}
-\begin{cases}
-\bnabla \bvel_P^{(n-1)} \bigcdot \mathbf{PF}, \quad \quad \quad &\text{if } \dot{m}_f^{(n-1)}>0 \\
-\bnabla \bvel_N^{(n-1)} \bigcdot \mathbf{NF}, \quad \quad \quad &\text{if } \dot{m}_f^{(n-1)}<0 \\
-\end{cases}
-\eeqn 
+\subsection{Preface on the need for $\bnabla \bvel$}
+The gradient of the velocity cannot simply be computed, i.e., from the Green-Gauss method in \eqref{eq:gradient_gg}, because we are using a collocated scheme for which it is known to create a phenomenon known as ``checkerboarding". This is especially true since we require the face-velocities. Checkerboarding was first addressed in a paper by Rhie and Chow \cite{RhieChow} by applying momentum interpolation and was later improved on by Majumdar \cite{Majumdar}. In this project we use the Majumdar Momentum Interpolation Method (MMIM) \textbf{which we will detail later}.
 \newline
-where again $\mathbf{PF}$ is the vector from the present cell centroid to the face centroid, and $\mathbf{NF}$ is the vector from the neighboring cell centroid to the face centroid. The neighbor $N$ is the neighbor at face $f$.
-
-Note that this formulation requires us to compute the gradient of the velocity and have it available when assembling the system. 
-
-
-\subsection{Gradient terms, $\{ \mu \nabla \bvel \}_f$ and $\{ \mu (\nabla \bvel)^T \}_f$}
-The gradient-term is computed as depicted in \eqref{eq:linear_interp_gradient} by first computing the explicit linear interpolated gradients from \eqref{eq:linear_interpolation}
-\beq 
-\overline{\bnabla \bvel_f}^{(n-1)} =
-(1-r_P)\bnabla \bvel_P^{(n-1)} + (r_P) \bnabla \bvel_N^{(n-1)}
-\eeq 
-after which
-\beqn
-\bnabla \bvel_f 
-= \frac{ \bvel_N - \bvel_N }{d_{PN}}\cdot \mathbf{e}_{PN}
-+ \overline{\bnabla \bvel_f}^{(n-1)}
- \ - \ 
-\biggr(
-\overline{\bnabla \bvel_f }^{(n-1)} \ \bigcdot \ \mathbf{e}_{PN}
-\biggr) \cdot \ \mathbf{e}_{PN}
-\eeqn
-
-\subsection{Divergence term, $(\mu \bnabla \bullet \mathbf{u}^{(n-1)})_f$}
-
-The divergence term is easy to obtain if we already computed the gradients at the faces. For this we use the notation defined in the tools section.
-
-\beqn 
-(\mu \bnabla \bigcdot \bvel^{(n-1)})_f = \mu_f \mathbb{1} \bigcdot \biggr ( (\bnabla \bvel^{(n-1)})_f \sum_j b_j \biggr )
-\eeqn 
-
-\subsection{Face pressure, $p_f$}
-
-The face pressure is simply taken as a geometrically averaging of the adjoining cell's pressures when the face is internal, as depicted in \eqref{eq:linear_interpolation}, and is interpolated to the boundary when the face is on a boundary. Therefore, with an internal face we have
-\beq 
-p_{f_i} = ( 1-r_P) p_P  + (r_P)p_N
-\eeq 
-\beq 
-\bnabla p_{f_i}^{(n-1)} = ( 1-r_P) \bnabla p_P^{(n-1)}  + (r_P) \bnabla p_N^{(n-1)}
-\eeq 
-and then
-\beqn
-p_f = p_{f_i} + \bnabla p_{f_i}^{(n-1)} \bigcdot \mathbf{F_iF}
-\eeqn 
-and for a boundary face we have 
-\beq 
-p_f = p_P + \bnabla p_P^{(n-1)} \bigcdot \mathbf{PF}.
-\eeq 
+\newline 
+\textcolor{red}{Note:} For now, assume that we can compute $\bnabla \bvel$ and have its previous iteration value, $\bnabla \bvel^{(n-1)}$, available.
 \newline
-Note again here that we need to store the gradient of the pressure.
+\newline
+We now require expressions for the face terms $\dot{m}_f^{(n-1)} \bvel_f$, $\{ \mu \nabla \bvel\}_f$, $\{ \mu (\nabla \bvel)^T\}_f$, and $(\mu \bnabla \bigcdot \bvel^{(n-1)})_f$. In all the sub-sections that follow we will be working with a known mass flow rate $\dot{m}_f = \rho \mathbf{A}_f \bigcdot \bvel_f^{(\ell-1)} $ which will be assumed zero at the start of the simulation but will be updated and stored later.
+\newline
+\newline
+But first let us define the coefficient formulation.
 
 \subsection{Coefficient formulation and under-relaxation}
 
-When applying the discretization of the momentum equation above, we can arrange algebraic terms into the following general form:
+When applying the discretization of the momentum equation above, we ultimately seek to arrange algebraic terms into the following general form:
 \beq 
 \mathbf{a}^P \bvel^P + \sum_f \mathbf{a}^N \bvel^N = \mathbf{b}_{nur}^P + \sum_f -\mathbf{A}_f p_f
 \eeq 
@@ -715,12 +641,7 @@ When applying the discretization of the momentum equation above, we can arrange 
 \therefore
 \mathbf{a}^P \bvel^P  = - \sum_f \mathbf{a}^N \bvel^N + \mathbf{b}_{nur}^P + \sum_f -\mathbf{A}_f p_f
 \eeq
-where the coefficients $\mathbf{a}^P$ and $\mathbf{a}^N$ are vector valued and $\mathbf{b}_{nur}$ signifies no under-relaxation.
-\beq 
-asd
-\eeq 
-\newline
-\newline
+where the coefficients $\mathbf{a}^P$ and $\mathbf{a}^N$ are vector valued and $\mathbf{b}_{nur}$ signifies no under-relaxation. 
 For iterative control we further introduce an under-relaxation with respect to the previous iteration velocity such that 
 
 \beq 
@@ -750,7 +671,161 @@ to get the \textbf{momentum equation in coefficient form}:
 \mathbf{b}^P 
 + \sum_f -\mathbf{A}_f p_f
 \eeqn
+Note here that the $\mathbf{a}$ and $\mathbf{b}$ coefficients are vector valued.
 
+
+\subsection{Material properties at faces, $\mu_f$ and $\rho_f$}
+Material properties are generally not as rapidly varying as the pressure or velocity and therefore we linearly interpolate these values without the correction term specified in \eqref{eq:linear_interpolation} and instead just use \eqref{eq:linear_interpolation_nocorr2}. Therefore,
+\beqn
+\mu_f = (1-r_f)\mu_P + (r_f)\mu_N 
+\eeqn
+\beqn
+\rho_f = (1-r_f)\rho_P + (r_f)\rho_N 
+\eeqn
+
+\subsection{Diffusion gradient terms, $\{ \mu \nabla \bvel \}_f$}
+The gradient-term, $\mathbf{A}_f \bigcdot \{ \mu \bnabla \bvel \}_f$ is treated as introduced in \eqref{eq:flux_of_gradient},
+
+\beqn
+-\mathbf{A}_f \bigcdot ( \mu\bnabla \bvel)_f 
+&=
+ -\mu_f \frac{A_p}{d_{PN}} \biggr ( \bvel_N - \bvel_P \biggr)
+-  \mu_f \frac{ A_p }{d_{PN}} \biggr \{ \bnabla \bvel_N  -  \bnabla \bvel_P \biggr\}^{(n-1)}
+\ \bigcdot \mathbf{F_iF} \\
+&\quad-\mu_f
+\biggr \{
+(1-r_P)\bnabla \bvel_P+(r_P)\bnabla \bvel_N
+\biggr \}^{(n-1)} \bigcdot \mathbf{A}_t
+\eeqn 
+\newline
+Note here that this formulation has both implicit terms and explicit terms. The coefficients get updated as 
+\beq 
+\mathbf{a}^N &= \mathbf{a}^N -  \ \mu_f \frac{A_p}{d_{PN}} \cdot \mathbb{1} \\
+\mathbf{a}^P &= \mathbf{a}^P + \  \mu_f \frac{A_p}{d_{PN}} \cdot \mathbb{1} \\
+\mathbf{b}^P &= \mathbf{b}^P + \   
+\mu_f \frac{ A_p }{d_{PN}} \biggr \{ \bnabla \bvel_N  -  \bnabla \bvel_P \biggr\}^{(n-1)}
+\ \bigcdot \mathbf{F_iF} \ + \ \mu_f
+\biggr \{
+(1-r_P)\bnabla \bvel_P+(r_P)\bnabla \bvel_N
+\biggr \}^{(n-1)} \bigcdot \mathbf{A}_t
+\eeq 
+
+\subsection{Cross-diffusion gradient terms, $\{ \mu (\nabla \bvel)^T \}_f^{(n-1)}$}
+This term can be evaluated purely using explicitly values and by noting the term has a weak coupling to the momentum equation, we can apply the interpolation option given in \eqref{eq:linear_interpolation_nocorr2}
+
+\beqn 
+\mathbf{A}_f \bigcdot \{ \mu (\nabla \bvel)^T \}_f^{(n-1)} = 
+\mu_f \mathbf{A}_f \bigcdot
+\biggr \{
+(1-r_f)
+\{\nabla \bvel\}_P^T
++
+(r_f)
+\{\nabla \bvel\}_N^T
+\biggr\}^{(n-1)}
+\eeqn 
+
+The coefficients get updated as 
+\beq
+\mathbf{b}^P &= \mathbf{b}^P 
++ \ 
+\mu_f \mathbf{A}_f \bigcdot
+\biggr \{
+(1-r_f)
+\{\nabla \bvel\}_P^T
++
+(r_f)
+\{\nabla \bvel\}_N^T
+\biggr\}^{(n-1)}
+\eeq
+
+
+
+\subsection{Divergence term, $(\mu \bnabla \bullet \mathbf{u}^{(n-1)})_f$}
+
+The divergence term is easy to obtain if we already computed the gradients at the faces. For this we use the notation defined in the tools section.
+
+\beqn 
+-\frac{2}{3}\mathbf{A}_f (\mu \bnabla \bigcdot \bvel^{(n-1)})_f =
+-\frac{2}{3} \mu_f \mathbf{A}_f 
+\biggr(
+\mathbb{1} \  \bigcdot \ 
+ \text{diag}(\bnabla \bvel) 
+\biggr)_f^{(n-1)}
+\eeqn 
+
+The coefficients get updated as 
+\beq
+\mathbf{b}^P &= \mathbf{b}^P 
+- \ \frac{2}{3} \mu_f \mathbf{A}_f 
+\biggr(
+\mathbb{1} \  \bigcdot \ 
+ \text{diag}(\bnabla \bvel) 
+\biggr)_f^{(n-1)}
+\eeq
+
+\subsection{Face convection term, $\dot{m}_f^{(n-1)} \bvel_f $ }
+
+The face convective term is taken from a second-order upwind scheme. This is achieved by considering the upstream face velocity as $\bvel_f^U$ as pertaining to the associated upstream cell (either the present cell or the neighbor cell) as captured by
+
+\beqn 
+\dot{m}_f^{(n-1)} \bvel_f^U &= 
+\text{min}\biggr ( 
+\dot{m}_f^{(n-1)},0.0
+\biggr ) \bvel^N +
+\text{max}\biggr ( 
+\dot{m}_f^{(n-1)},0.0
+\biggr ) \bvel^P \\
+&\quad + \ \dot{m}_f^{(n-1)}
+\begin{cases}
+\bnabla \bvel_N^{(n-1)} \bigcdot \mathbf{NF}, \quad \quad \quad &\text{if } \dot{m}_f^{(n-1)}<0 \\
+\bnabla \bvel_P^{(n-1)} \bigcdot \mathbf{PF}, \quad \quad \quad &\text{if } \dot{m}_f^{(n-1)}>0 \\
+\end{cases}
+\eeqn 
+\newline
+where again $\mathbf{PF}$ is the vector from the present cell centroid to the face centroid, and $\mathbf{NF}$ is the vector from the neighboring cell centroid to the face centroid. The neighbor $N$ is the neighbor at face $f$.
+\newline
+\newline
+The coefficients get updated as 
+\beq 
+\mathbf{a}^N &= \mathbf{a}^N + \ 
+\text{min}\biggr ( 
+\dot{m}_f^{(n-1)},0.0
+\biggr )\\
+\mathbf{a}^P &= \mathbf{a}^P + \ 
+\text{max}\biggr ( 
+\dot{m}_f^{(n-1)},0.0
+\biggr )\\
+\mathbf{b}^P &= \mathbf{b}^P - \   
+\dot{m}_f^{(n-1)}
+\begin{cases}
+\bnabla \bvel_N^{(n-1)} \bigcdot \mathbf{NF}, \quad \quad \quad &\text{if } \dot{m}_f^{(n-1)}<0 \\
+\bnabla \bvel_P^{(n-1)} \bigcdot \mathbf{PF}, \quad \quad \quad &\text{if } \dot{m}_f^{(n-1)}>0 \\
+\end{cases}
+\eeq 
+
+
+
+
+\subsection{Face pressure, $p_f$}
+
+The face pressure is simply taken as a geometrically averaging of the adjoining cell's pressures when the face is internal, as depicted in \eqref{eq:linear_interpolation}, and is interpolated to the boundary when the face is on a boundary. Therefore, with an internal face we have
+\beq 
+p_{f_i} = ( 1-r_P) p_P  + (r_P)p_N
+\eeq 
+\beq 
+\bnabla p_{f_i}^{(n-1)} = ( 1-r_P) \bnabla p_P^{(n-1)}  + (r_P) \bnabla p_N^{(n-1)}
+\eeq 
+and then
+\beqn
+p_f = p_{f_i} + \bnabla p_{f_i}^{(n-1)} \bigcdot \mathbf{F_iF}
+\eeqn 
+and for a boundary face we have 
+\beq 
+p_f = p_P + \bnabla p_P^{(n-1)} \bigcdot \mathbf{PF}.
+\eeq 
+\newline
+Note again here that we need to store the gradient of the pressure.
 
 
 
@@ -944,7 +1019,11 @@ In this equation $(\bnabla p)_f$ can then be computed using \eqref{eq:linear_int
     
     \bibitem{Sezai} Sezai I., {\em Implementation of boundary conditions in pressure-based finite volume methods on unstructured grids}, Numerical Heat Transfer, Part B: Fundamentals, 2017
     
-    \bibitem{delaunay} Cheng et al, {\em Delaunay Mesh Generation}, Chapman \& Hall/CRC Computer \& Information Science Series, 2013
+    \bibitem{MMD} Moukalled F., Mangani L., Darwish M., {\em The Finite Volume Method in Computational Fluid Dynamics - An Advanced Introduction with OpenFOAM and Matlab}, Springer, 2016.
+    
+    \bibitem{RhieChow} Rhie C.M., Chow W.L., {\em Numerical Study of the Turbulent Flow Past an Airfoil with Trailing Edge Separation}, AIAAJ Volume 21, Number 11, November 1983.
+    
+    \bibitem{Majumdar} Majumdar S., {\em Role of underrelaxation in momentum interpolation for calculation of flow with nonstaggered grids}, Numerical Heat Transfer 13, pages 125-132. 1998.
     
     
 \end{thebibliography}

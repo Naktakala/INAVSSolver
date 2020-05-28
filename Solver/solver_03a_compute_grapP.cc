@@ -84,8 +84,11 @@ void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
 
           double rP = d_PFi/d_PN;
 
+          chi_mesh::Vector3 Fi = cell.centroid + d_PFi*e_PN;
+          chi_mesh::Vector3 FiF= Fi - cell.centroid;
+
           //=========================== Compute face value
-          double p_f_P = (1.0-rP)*p_P + (1.0-rP)*gradp_P.Dot(PF);
+          double p_f_P = (1.0-rP)*p_P + (1.0-rP)*gradp_P.Dot(FiF);
 
           a_P_coeff      = a_P_coeff + A_f*n*p_f_P;
           auto a_N_coeff = A_f*(-1.0*n)*p_f_P;
@@ -136,8 +139,7 @@ void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
   }//for k iteration
 
   //============================================= Scatter gradp
-  VecGhostUpdateBegin(v_gradp,INSERT_VALUES,SCATTER_FORWARD);
-  VecGhostUpdateEnd  (v_gradp,INSERT_VALUES,SCATTER_FORWARD);
+  chi_math::PETScUtils::CommunicateGhostEntries(v_gradp);
 
   //============================================= Destroy work vectors
   VecDestroy(&v_gradp_old);

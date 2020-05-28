@@ -17,11 +17,7 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
   const int ND = num_dimensions;
 
   if (no_mass_flux_update)
-  {
     VecSet(x_gradu,0.0);
-    VecGhostUpdateBegin(x_gradu,INSERT_VALUES,SCATTER_FORWARD);
-    VecGhostUpdateEnd  (x_gradu,INSERT_VALUES,SCATTER_FORWARD);
-  }
 
   //============================================= Get local views
   std::vector<Vec> x_uL(3);
@@ -32,7 +28,6 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
   for (int dim : dimensions)
   {
     VecGhostGetLocalForm(x_u[dim],&x_uL[dim]);
-//    VecGhostGetLocalForm(x_umim[dim],&x_umimL[dim]);
     VecGhostGetLocalForm(x_a_P[dim],&x_a_PL[dim]);
   }
   VecGhostGetLocalForm(x_gradp,&x_gradpL);
@@ -47,7 +42,6 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
   for (int dim : dimensions)
   {
     VecGetArrayRead(x_uL[dim],&d_uL[dim]);
-//    VecGetArrayRead(x_umimL[dim],&d_umimL[dim]);
     VecGetArrayRead(x_a_PL[dim],&d_a_PL[dim]);
   }
   VecGetArrayRead(x_pL,&d_pL);
@@ -85,8 +79,6 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
         auto& a_N_f = cell_mom_coeffs.a_N_f[f];
 
         chi_mesh::Vector3 u_N;
-//        for (auto dim : dimensions)
-//          VecGetValues(x_uL[dim], 1, &lju, &u_N(dim));
         for (int dim : dimensions)
           u_N(dim) = d_uL[dim][lju];
 
@@ -194,13 +186,6 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
         chi_mesh::Vector3 u_mim_N;
         chi_mesh::Vector3 a_N;
 
-//        VecGetValues(x_pL,1,&ljp,&p_N);
-//        VecGetValues(x_gradpL, num_dimensions, ljgradp.data(), &gradp_N(0));
-//        for (int dim : dimensions)
-//        {
-//          VecGetValues(x_umimL[dim],1,&lju,&u_mim_N(dim));
-//          VecGetValues(x_a_PL[dim] ,1,&lju,&a_N(dim));
-//        }
         p_N = d_pL[ljp];
         for (int dim :dimensions)
         {
