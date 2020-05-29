@@ -1,6 +1,7 @@
 #include "solver.h"
 
 #include "chi_log.h"
+extern ChiLog& chi_log;
 
 extern double U;
 extern double mu;
@@ -17,7 +18,6 @@ void INAVSSolver::AssembleMomentumSystem()
   typedef std::vector<int> VecInt;
   typedef std::vector<VecInt> VecVecInt;
   const int ND = num_dimensions;
-  typedef std::vector<chi_mesh::Vector3> VecVec3;
 
   //============================================= Reset matrices and RHSs
   for (int dim : dimensions)
@@ -30,13 +30,11 @@ void INAVSSolver::AssembleMomentumSystem()
   auto d_graduL =
     chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_gradu);
 
-
   //============================================= Loop over cells
   for (auto& cell : grid->local_cells)
   {
-    auto cell_fv_view = fv_sdm.MapFeView(cell.local_id);
-
-    double V_P = cell_fv_view->volume;
+    auto   cell_fv_view = fv_sdm.MapFeView(cell.local_id);
+    double V_P          = cell_fv_view->volume;
 
     //====================================== Map row indices of unknowns
     int iu       = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
@@ -46,11 +44,6 @@ void INAVSSolver::AssembleMomentumSystem()
       for (int j : dimensions)
         igrad_u[i][j] = fv_sdm.MapDOF(&cell,&uk_man_gradu,GRAD_U,i*ND+j);
 
-    VecVecInt igrad_u_T(num_dimensions,VecInt(num_dimensions,-1));
-    for (int i : dimensions)
-      for (int j : dimensions)
-        igrad_u_T[j][i] = igrad_u[i][j];
-
     std::vector<int> igradp(3,-1);
     for (int dim : dimensions)
       igradp[dim]   = fv_sdm.MapDOF(&cell,&uk_man_gradp,GRAD_P, dim);
@@ -58,38 +51,33 @@ void INAVSSolver::AssembleMomentumSystem()
     //====================================== Get previous iteration info
     chi_mesh::Vector3              u_P;     //for under-relaxation
     chi_mesh::Vector3              u_P_old; //for previous time
-    std::vector<chi_mesh::Vector3> gradu_P(num_dimensions);
-    std::vector<chi_mesh::Vector3> gradu_P_T(num_dimensions);
+    chi_mesh::TensorRank2Dim3      gradu_P;
     chi_mesh::Vector3              gradp_P;
     double                         divu_P = 0.0;
+    chi_mesh::TensorRank2Dim3      gradu_P_T;
 
     for (auto dim : dimensions)
     {
       VecGetValues(x_u[dim]   , 1, &iu, &u_P(dim));
       VecGetValues(x_uold[dim], 1, &iu, &u_P_old(dim));
-      VecGetValues(x_gradu, num_dimensions,
-                   igrad_u[dim].data(),&(gradu_P[dim])(0));
-      VecGetValues(x_gradu, num_dimensions,
-                   igrad_u_T[dim].data(),&(gradu_P_T[dim])(0));
+      VecGetValues(x_gradu, ND, igrad_u[dim].data(),&(gradu_P[dim](0)));
     }
-    for (int i : dimensions)
-      divu_P += gradu_P[i][i];
-
     VecGetValues(x_gradp, num_dimensions, igradp.data(), &gradp_P(0));
+    divu_P    = gradu_P.DiagSum();
+    gradu_P_T = gradu_P.Transpose();
 
     //====================================== Init matrix coefficients
-    chi_mesh::Vector3 a_t;
-    chi_mesh::Vector3 a_P;
-    chi_mesh::Vector3 b_P;
+    chi_mesh::Vector3              a_t;
+    chi_mesh::Vector3              a_P;
+    chi_mesh::Vector3              b_P;
     std::vector<chi_mesh::Vector3> a_N_f(cell.faces.size());
 
-    std::vector<int>    neighbor_indices(cell.faces.size(), -1);
+    std::vector<int>    ju_at_f(cell.faces.size(), -1);
 
     //====================================== Time derivative
     if (not options.steady)
     {
-      for (auto dim : dimensions)
-        a_t(dim) = rho * V_P / dt;
+      a_t = (rho*V_P/dt)*VEC3_ONES;
 
       b_P = b_P + a_t*u_P_old;
     }
@@ -122,28 +110,18 @@ void INAVSSolver::AssembleMomentumSystem()
             ljgrad_u[i][j] =
               fv_sdm.MapDOFLocal(adj_cell,&uk_man_gradu,GRAD_U,i*ND+j);
 
-        VecVecInt ljgrad_u_T(num_dimensions,VecInt(num_dimensions,-1));
-        for (int i : dimensions)
-          for (int j : dimensions)
-            ljgrad_u_T[j][i] = ljgrad_u[i][j];
-
-        neighbor_indices[f] = ju;
+        ju_at_f[f] = ju;
 
         //============================= Get neighbor previous iteration values
-        std::vector<chi_mesh::Vector3> gradu_N(num_dimensions);
-        std::vector<chi_mesh::Vector3> gradu_N_T(num_dimensions);
-        double divu_N = 0.0;
+        chi_mesh::TensorRank2Dim3 gradu_N;
+        chi_mesh::TensorRank2Dim3 gradu_N_T;
+        double                    divu_N = 0.0;
 
         for (int i : dimensions)
           for (int j : dimensions)
-          {
-            gradu_N[i](j)   = d_graduL[ljgrad_u[i][j]];
-            gradu_N_T[i](j) = d_graduL[ljgrad_u_T[i][j]];
-          }
-
-        for (int i : dimensions)
-          divu_N += gradu_N[i][i];
-
+            gradu_N[i](j)  = d_graduL[ljgrad_u[i][j]];
+        gradu_N_T = gradu_N.Transpose();
+        divu_N    = gradu_N.DiagSum();
 
         //============================= Compute vectors
         chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
@@ -177,19 +155,14 @@ void INAVSSolver::AssembleMomentumSystem()
         a_P = a_P - diffusion_entry*VEC3_ONES;
 
         // Non-orthogonal terms
-        for (int i : dimensions)
-        {
-          b_P(i) -= diffusion_entry*(gradu_N[i] - gradu_P[i]).Dot(FiF);
-          b_P(i) += mu*A_t.Dot((1.0-rP)*gradu_P[i] + rP*gradu_N[i]);
-        }
+        b_P -= diffusion_entry*(gradu_N - gradu_P).Dot(FiF);
+        b_P += mu*A_t.Dot((1.0-rP) * gradu_P + rP * gradu_N);
 
         //============================= Develop cross diffusion entry
-        for (int i : dimensions)
-          b_P(i) += mu*A_f*n.Dot((1.0-r_f)*gradu_P_T[i] + r_f*gradu_N_T[i]);
+        b_P += mu*A_f*n.Dot((1.0-r_f) * gradu_P_T + r_f * gradu_N_T);
 
         //============================= Develop divergence term
-        for (int i : dimensions)
-          b_P(i) -= TWO_THIRDS*mu*A_f*n[i]*((1-r_f)*divu_P + r_f*divu_N);
+        b_P -= TWO_THIRDS*mu*A_f*n*((1-r_f)*divu_P + r_f*divu_N);
 
         //============================= Develop convection entry
         double m_f = mass_fluxes[cell.local_id][f];
@@ -200,11 +173,9 @@ void INAVSSolver::AssembleMomentumSystem()
 
         // Second-order terms
         if (m_f > 0.0)
-          for (int dim : dimensions)
-            b_P(dim) += - m_f*gradu_P[dim].Dot(PF);
+          b_P += -m_f*PF.Dot(gradu_P);
         else
-          for (int dim : dimensions)
-            b_P(dim) += - m_f*gradu_N[dim].Dot(NF);
+          b_P += -m_f*NF.Dot(gradu_N);
 
       }//interior face
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary faces
@@ -256,12 +227,9 @@ void INAVSSolver::AssembleMomentumSystem()
 
     //====================================== Assemble off-diagonal entries
     for (f=0; f<cell.faces.size(); ++f)
-    {
-      if (neighbor_indices[f] < 0) continue;
-
-      for (auto dim : dimensions)
-        MatSetValue(A_u[dim],iu,neighbor_indices[f],a_N_f[f][dim],ADD_VALUES);
-    }
+      if (ju_at_f[f] >= 0)
+        for (auto dim : dimensions)
+          MatSetValue(A_u[dim], iu, ju_at_f[f], a_N_f[f][dim], ADD_VALUES);
 
     //====================================== Assemble RHS
     auto rhs_entry = b_P + s_pressure + s_body;
@@ -282,10 +250,7 @@ void INAVSSolver::AssembleMomentumSystem()
   }//for cell
 
   //============================================= Restore local views
-//  VecRestoreArrayRead(x_graduL,&d_graduL);
-//  VecGhostRestoreLocalForm(x_gradu,&x_graduL);
-  chi_math::PETScUtils::
-  RestoreGhostVectorLocalViewRead(x_gradu,d_graduL);
+  chi_math::PETScUtils::RestoreGhostVectorLocalViewRead(x_gradu,d_graduL);
 
   //============================================= Assemble matrices globally
   for (int i : dimensions)
