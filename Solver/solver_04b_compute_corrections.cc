@@ -44,14 +44,18 @@ void INAVSSolver::ComputeCorrections()
       igradp[dim] = fv_sdm.MapDOF(&cell,&uk_man_gradp,GRAD_P,dim);
 
     //====================================== Get previous iteration info
-    double p_P;
+    double            p_P;
     chi_mesh::Vector3 gradp_P;
     chi_mesh::Vector3 a_P;
+    double            a_P_avg;
 
     VecGetValues(x_pc,1,&ip,&p_P);
     VecGetValues(x_gradp, num_dimensions, igradp.data(), &gradp_P(0));
     for (int dim : dimensions)
       VecGetValues(x_a_P[dim],1,&iu,&a_P(dim));
+    for (int i : dimensions)
+      a_P_avg += a_P[i];
+    a_P_avg /= num_dimensions;
 
     //====================================== Declare velocity correction
     chi_mesh::Vector3 uc;
@@ -83,22 +87,19 @@ void INAVSSolver::ComputeCorrections()
             fv_sdm.MapDOFLocal(adj_cell,&uk_man_gradp,GRAD_P,dim);
 
         //============================= Get previous iteration info
-        double p_N;
+        double            p_N;
         chi_mesh::Vector3 gradp_N;
         chi_mesh::Vector3 a_N;
-
-//        VecGetValues(x_pcL, 1, &ljp, &p_N);
-//        VecGetValues(x_gradpL,num_dimensions,ljgradp.data(),&gradp_N(0));
-//        for (int dim : dimensions)
-//          VecGetValues(x_a_PL[dim] ,1,&lj0,&a_N(dim));
+        double            a_N_avg;
 
         p_N = d_pcL[ljp];
         for (int dim : dimensions)
         {
           gradp_N(dim) = d_gradpL[ljgradp[dim]];
           a_N    (dim) = d_a_PL[dim][lj0];
+          a_N_avg += d_a_PL[dim][lj0];
         }
-
+        a_N_avg /= num_dimensions;
 
         //============================= Compute vectors
         chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
@@ -128,10 +129,8 @@ void INAVSSolver::ComputeCorrections()
         mass_fluxes[cell.local_id][f] =
           m_f_old - rho*alpha_u*V*A_f*n.Dot(a_f_inv*grad_pc_f);
 
-        chi_mesh::Vector3 p_avg;
-        for (auto dim : dimensions)
-          p_avg(dim) = (p_P / a_P[dim] + p_N / a_N[dim]) /
-                       (1.0/a_P[dim] + 1.0/a_N[dim]);
+        double p_avg = (p_P / a_P_avg + p_N / a_N_avg) /
+                       (1.0/a_P_avg + 1.0/a_N_avg);
 
         chi_mesh::Vector3 Dp_dot_gradpc = (alpha_u*a_f_inv)*A_f*n*p_avg;
 

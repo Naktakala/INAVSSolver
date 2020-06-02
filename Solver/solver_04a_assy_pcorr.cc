@@ -76,8 +76,6 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
         //============================= Get Values
         chi_mesh::Vector3 a_N;
 
-//        for (int dim : dimensions)
-//          VecGetValues(x_a_PL[dim],1,&lju,&a_N(dim));
         for (int dim : dimensions)
           a_N(dim) = d_a_PL[dim][lju];
 
@@ -98,9 +96,14 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
         auto   a_f = (1.0-rP)*a_P + rP*a_N;
         double V_f = (1.0-rP)*V_P + rP*V_N;
 
+        double a_f_avg = 0.0;
+        for (int dim : dimensions)
+          a_f_avg += a_f[dim];
+        a_f_avg /= num_dimensions;
+
         //============================= Compute ds, a_inv_ds_inv
         chi_mesh::Vector3 ds = adj_cell->centroid - cell.centroid;
-        auto a_ds = a_f*ds;
+        auto a_ds = a_f_avg*ds;
         auto a_inv_ds_inv = a_ds.InverseZeroIfSmaller(1.0e-10);
 
         //============================= Develop diffusion entry
@@ -119,9 +122,14 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
       else
       {
+        double a_f_avg = 0.0;
+        for (int dim : dimensions)
+          a_f_avg += a_P[dim];
+        a_f_avg /= num_dimensions;
+
         //============================= Compute Area vector
         auto ds = face.centroid - cell.centroid;
-        auto a_ds = a_P*ds;
+        auto a_ds = a_f_avg*ds;
         auto a_inv_ds_inv = a_ds.InverseZeroIfSmaller(1.0e-10);
 
         //============================= Develop diffusion entry

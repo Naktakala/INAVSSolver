@@ -51,7 +51,7 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
   //============================================= Compute MIM velocities
   for (auto& cell : grid->local_cells)
   {
-    auto& cell_mom_coeffs = momentum_coeffs[cell.local_id];
+    auto& cell_mom_coeffs = cell_info[cell.local_id];
 
     //====================================== Map row indices of unknowns
     int iu            = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
@@ -217,8 +217,9 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
         chi_mesh::Vector3 a_f_inv = a_f.InverseZeroIfSmaller(1.0e-10);
 
         //============================= Compute grad_p_f
-        chi_mesh::Vector3 grad_p_f = (dp/d_PN)*e_PN + grad_p_f_avg -
-                                     grad_p_f_avg.Dot(e_PN)*e_PN;
+//        chi_mesh::Vector3 grad_p_f = (dp/d_PN)*e_PN + grad_p_f_avg -
+//                                     grad_p_f_avg.Dot(e_PN)*e_PN;
+        chi_mesh::Vector3 grad_p_f = (dp/d_PN)*e_PN;
 
         //============================= Compute face velocities
         chi_mesh::Vector3 u_f = (alpha_u*a_f_inv)*(u_mim_f - V_f * grad_p_f);

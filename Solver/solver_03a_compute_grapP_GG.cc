@@ -15,7 +15,7 @@ void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
   VecNorm(v_gradp_old,NORM_2,&fnorm_gradp_old);
 
   //============================================= Start iterations
-  for (int k=0; k<2; ++k)
+  for (int k=0; k<1; ++k)
   {
     VecSet(v_gradp,0.0);
     for (auto& cell : grid->local_cells)
@@ -90,7 +90,7 @@ void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
           //=========================== Compute face value
           double p_f_P = (1.0-rP)*p_P + (1.0-rP)*gradp_P.Dot(FiF);
 
-          a_P_coeff      = a_P_coeff + A_f*n*p_f_P;
+               a_P_coeff = a_P_coeff + A_f*n*p_f_P;
           auto a_N_coeff = A_f*(-1.0*n)*p_f_P;
 
           //=========================== Set adjacent cell value
@@ -104,7 +104,8 @@ void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
           chi_mesh::Vector3 PF = face.centroid - cell.centroid;
 
           //=========================== Compute face value
-          double p_b = p_P + gradp_P.Dot(PF);
+//          double p_b = p_P + gradp_P.Dot(PF);
+          double p_b = p_P;
 
           a_P_coeff = a_P_coeff + A_f*n*p_b;
         }

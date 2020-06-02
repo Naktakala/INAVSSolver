@@ -26,6 +26,7 @@ void INAVSSolver::Initialize()
                                       chi_math::UnknownType::VECTOR_3);
   GRAD_U   = uk_man_gradu.AddUnknown(chi_math::UnknownType::VECTOR_N,
                                      (num_dimensions == 2)? 4 : 9);
+  PROPERTY = uk_man_props.AddUnknown(chi_math::UnknownType::SCALAR);
 
   if (num_dimensions == 3)
   {
@@ -120,12 +121,10 @@ void INAVSSolver::Initialize()
                                         ndof_ghost_u,
                                         ghost_ids_u);
 
-//    VecDuplicate(x_u[d],&x_uold[d]);
+    VecDuplicate(x_u[d],&x_uold[d]);
     VecDuplicate(x_u[d],&x_umim[d]);
     VecDuplicate(x_u[d],&x_a_P [d]);
-//    VecDuplicate(x_u[d],&b_u   [d]);
-    x_uold[d]  = CreateVector(ndof_local_u,ndof_globl_u);
-    b_u   [d]  = CreateVector(ndof_local_u,ndof_globl_u);
+    VecDuplicate(x_u[d],&b_u   [d]);
   }
   log.Log(LOG_0) << "Done creating velocity vectors.";
 
@@ -149,6 +148,10 @@ void INAVSSolver::Initialize()
 
     VecDuplicate(x_p,&x_pc);
     VecDuplicate(x_p,&b_pc);
+
+    VecDuplicate(x_p,&x_V);
+    VecDuplicate(x_p,&x_rho);
+    VecDuplicate(x_p,&x_mu);
   }
 
   for (int d : dimensions)
@@ -181,7 +184,7 @@ void INAVSSolver::Initialize()
       KSPRICHARDSON,        // Solver type
       PCHYPRE,       // Preconditioner type
       1.0e-1,       // Residual tolerance
-      10);         // Maximum number of iterations
+      30);         // Maximum number of iterations
 
   lin_solver_p = chi_math::PETScUtils::CreateCommonKrylovSolverSetup(
     A_pc,            // Reference matrix
@@ -198,7 +201,7 @@ void INAVSSolver::Initialize()
   bndry_pressures.resize(grid->local_cells.size());
   cell_bndry_flags.clear();
   cell_bndry_flags.resize(grid->local_cells.size(),false);
-  momentum_coeffs.resize(grid->local_cells.size());
+  cell_info.resize(grid->local_cells.size());
   int c=-1;
   for (auto& cell : grid->local_cells)
   {
@@ -206,7 +209,14 @@ void INAVSSolver::Initialize()
     mass_fluxes[c]    .resize(cell.faces.size(),0.0);
     bndry_pressures[c].resize(cell.faces.size(),0.0);
 
-    momentum_coeffs[c].a_N_f.resize(cell.faces.size());
+    cell_info[c].a_N_f.resize(cell.faces.size());
+
+    cell_info[c].info_set.resize(cell.faces.size(),false);
+    cell_info[c].A_p_div_d_PN.resize(cell.faces.size(),0.0);
+    cell_info[c].A_t.resize(cell.faces.size());
+    cell_info[c].FiF.resize(cell.faces.size());
+    cell_info[c].rP.resize(cell.faces.size(),0.0);
+    cell_info[c].r_f.resize(cell.faces.size(),0.0);
 
     for (auto& face : cell.faces)
     {
@@ -217,6 +227,9 @@ void INAVSSolver::Initialize()
       }
     }
   }
+
+  //======================================== Initialize material properties
+  InitProperties();
 
   log.Log(LOG_0) << "Done initializing Incompressible Navier-Stokes Solver";
 }

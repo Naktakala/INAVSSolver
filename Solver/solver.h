@@ -27,6 +27,7 @@ public:
   unsigned int PRESSURE = 0;
   unsigned int GRAD_P = 0;
   unsigned int GRAD_U = 0;
+  unsigned int PROPERTY = 0;
 
   const int U_X = 0, U_Y = 1, U_Z = 2;
 
@@ -48,6 +49,7 @@ public:
   chi_math::UnknownManager uk_man_p;
   chi_math::UnknownManager uk_man_gradp;
   chi_math::UnknownManager uk_man_gradu;
+  chi_math::UnknownManager uk_man_props;
 
   //=================================== Grid
 public:
@@ -75,6 +77,11 @@ public:
   Vec              x_pc;
   Vec              b_pc;
 
+  // Cell properties
+  Vec              x_V;   //Cell Volume
+  Vec              x_rho; //Density
+  Vec              x_mu;  //Viscosity
+
   //=================================== PETSc Solvers
 public:
   std::vector<chi_math::PETScUtils::PETScSolverSetup> lin_solver_u;
@@ -84,19 +91,19 @@ public:
 public:
   SpatialDiscretization_FV fv_sdm;
 
-  unsigned int ndof_local_u=0;
-  unsigned int ndof_globl_u=0;
-  unsigned int ndof_local_p=0;
-  unsigned int ndof_globl_p=0;
-  unsigned int ndof_local_gradp=0;
-  unsigned int ndof_globl_gradp=0;
-  unsigned int ndof_local_gradu=0;
-  unsigned int ndof_globl_gradu=0;
+  int ndof_local_u=0;
+  int ndof_globl_u=0;
+  int ndof_local_p=0;
+  int ndof_globl_p=0;
+  int ndof_local_gradp=0;
+  int ndof_globl_gradp=0;
+  int ndof_local_gradu=0;
+  int ndof_globl_gradu=0;
 
-  unsigned int ndof_ghost_u=0;
-  unsigned int ndof_ghost_p=0;
-  unsigned int ndof_ghost_gradp=0;
-  unsigned int ndof_ghost_gradu=0;
+  int ndof_ghost_u=0;
+  int ndof_ghost_p=0;
+  int ndof_ghost_gradp=0;
+  int ndof_ghost_gradu=0;
 
   std::vector<int> ghost_ids_u;
   std::vector<int> ghost_ids_p;
@@ -106,14 +113,21 @@ public:
 
   //=================================== Cell momentum coefficients
 public:
-  struct CellMomemtumCoefficients
+  struct CellInfo
   {
     chi_mesh::Vector3 a_t;
     chi_mesh::Vector3 a_P = chi_mesh::Vector3(1.0,1.0,1.0);
     chi_mesh::Vector3 b_P;
     std::vector<chi_mesh::Vector3> a_N_f;
+
+    std::vector<bool>              info_set;
+    std::vector<double>            A_p_div_d_PN;
+    std::vector<chi_mesh::Vector3> A_t;
+    std::vector<chi_mesh::Vector3> FiF;
+    std::vector<double>            rP;
+    std::vector<double>            r_f;
   };
-  std::vector<CellMomemtumCoefficients> momentum_coeffs;
+  std::vector<CellInfo> cell_info;
 
   //=================================== Utilities
 public:
@@ -124,10 +138,13 @@ public:
   //=================================== Methods
 public:
   void Initialize();
+  void InitProperties();
   void Execute();
 
   void ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p);
+  void ComputeGradP_WLSQ(Vec v_gradp, Vec v_p,bool limited=false);
   void ComputeGradUOrMassFlux(bool no_mass_flux_update=true);
+  void ComputeGradU_WLSQ(bool limited=false);
   void AssembleMomentumSystem();
 
   void AssemblePressureCorrectionSystem();

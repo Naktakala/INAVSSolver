@@ -274,6 +274,17 @@ a_{N-1} b_0 & a_{N-1} b_1 & \hdots & a_{N-1} b_{N-1} \\
 \eeqn 
 \newline 
 Note here that the ``order" of the tensor is also sometimes referred to as the tensor's rank. A simple definition of ``rank" is the number of indices in a given dimension required to address the components of a tensor. Therefore the above tensor has dimension $N$ and rank $2$. A scalar has dimension $1$ rank $0$ because we do not need any index, and a vector has dimension $N$ and rank $1$ because we only need a single index. In fluid mechanics we mostly deal with tensors of rank $2$.
+\newline
+\newline
+In ChiTech this functionality is:
+\begin{lstlisting}[language=c++]
+chi_mesh::Vector3 a;
+chi_mesh::Vector3 b;
+//
+//Some code
+//
+chi_mesh::TensorRank2Dim3 c = a.OTimes(b);
+\end{lstlisting}
 
 \subsubsection{Vector inverse, $\mathbf{a}^{-1}$}
 There is not a common notation for taking the component-wise inverse of a vector, however, the notation $\mathbf{a}^{-1}$ will be used to denote
@@ -287,6 +298,20 @@ There is not a common notation for taking the component-wise inverse of a vector
 \frac{1}{a_{N-1}}
 \end{bmatrix}
 \eeqn 
+\newline
+\newline
+In ChiTech this functionality is:
+\begin{lstlisting}[language=c++]
+chi_mesh::Vector3 a;
+chi_mesh::Vector3 a_inv = a.Inverse();
+\end{lstlisting}
+
+To avoid division by zero there are also safe versions:
+\begin{lstlisting}[language=c++]
+chi_mesh::Vector3 a;
+chi_mesh::Vector3 b = a.InverseZeroIfSmaller(1.0e-12);
+chi_mesh::Vector3 c = a.InverseOneIfSmaller(1.0e-12);
+\end{lstlisting}
 
 \subsubsection{Component-wise multiplication of vectors, $\mathbf{a}\mathbf{b}$}
 Also called the Hadamard-product which is the component-wise multiplication of two vectors or two matrices, where both operands need to be the same size. The notation for a Hadamard-product is the symbol $\circ$ or $\odot$. The tensor product notation is also sometimes confusingly mixed with component-wise multiplication (i.e., $\mathbf{a}\mathbf{b}$ vs $\{ \mathbf{a}\mathbf{b} \}$ ), however the component-wise multiplication is
@@ -301,6 +326,17 @@ a_1 b_1 \\
 a_{N-1}b_{N-1}
 \end{bmatrix}
 \eeqn
+\newline
+\newline
+In ChiTech this functionality is:
+\begin{lstlisting}[language=c++]
+chi_mesh::Vector3 a;
+chi_mesh::Vector3 b;
+//
+//Some code
+//
+chi_mesh::Vector3 c = a*b;
+\end{lstlisting}
 
 \subsubsection{Component-wise division of vectors, $\mathbf{a}^{-1}\mathbf{b}$}
 Also called Hadamard division where again both operands need to be of the same size. This is another instance of component-wise operations and involves the use of a vector-inverse, $\mathbf{a}^{-1}\mathbf{b}$, or simply written as division, $\mathbf{b}/\mathbf{a}$, in which case
@@ -316,6 +352,17 @@ b_{N-1}/a_{N-1}
 \end{bmatrix}.
 \eeqn
 Again notice the absence of the tensor notation, $\{\}$.
+\newline
+\newline
+In ChiTech this functionality is:
+\begin{lstlisting}[language=c++]
+chi_mesh::Vector3 a;
+chi_mesh::Vector3 b;
+//
+//Some code
+//
+chi_mesh::Vector3 c = a/b;
+\end{lstlisting}
 
 \subsubsection{Commutativity of component-wise operations}
 The following commutativity rules apply to component-wise operations:
@@ -380,7 +427,17 @@ a_0 \\ a_1 \\ \vdots \\ a_{N-1}
 \eeqn 
 \end{itemize}
 where the latter thought pattern requires the rank 2 tensor two be represented as a vector of vectors (or a matrix if you prefer).
-
+\newline
+\newline
+In ChiTech this functionality is:
+\begin{lstlisting}[language=c++]
+chi_mesh::Vector3 a;
+chi_mesh::TensorRank2Dim3 t;
+//
+//Some code
+//
+chi_mesh::Vector3 b = a.Dot(t);
+\end{lstlisting}
 
 \subsubsection{Dot-product of a vector with a tensor product of two other vectors, $\mathbf{a} \bullet \{\mathbf{b}\otimes \mathbf{c}\}$}
 A special case relating to the dot product of a vector and a tensor is the notation $\mathbf{a} \ \bigcdot \ \{\mathbf{b} \otimes \mathbf{c} \}$, which commonly arises from an area vector's dot product with the velocity tensor (i.e. $\mathbf{A} \ \bigcdot \ \{ \bvel \otimes \bvel\}$). In such a case the non-linearity of $\bvel \otimes \bvel$ is removed by lagging the velocity as $\mathbf{A} \ \bigcdot  \ \{ \bvel^{(n)} \bvel^{(n-1)} \}$ for which we get the general form, $\mathbf{a} = \mathbf{A}$, $\mathbf{b} = \bvel^{(n)}$, $\mathbf{c} = \bvel^{(n-1)}$, such that
@@ -405,6 +462,18 @@ a_0 b_{N-1} c_0 &+ & a_1 b_{N-1} c_1 &+ & \hdots &+ & a_{N-1}  b_{N-1} c_{N-1} \
 \eeqn 
 \newline 
 The usefulness of this will be made clearer in later sections.
+\newline
+\newline
+In ChiTech this functionality is:
+\begin{lstlisting}[language=c++]
+chi_mesh::Vector3 a;
+chi_mesh::Vector3 b;
+chi_mesh::Vector3 c;
+//
+//Some code
+//
+chi_mesh::Vector3 d = a.Dot(c)*b;
+\end{lstlisting}
 
 \subsubsection{Divergence of a vector given its gradient, $\bnabla \bullet \mathbf{a} = \mathbb{1} \ \bullet \ \text{diag}(\bnabla \mathbf{a})$}
 Programatically the divergence of vector-quantity can easily be obtained by accessing the diagonal elements of the gradient tensor, $\bnabla \mathbf{a}_{00}$, $\bnabla \mathbf{a}_{11}$ and $\bnabla \mathbf{a}_{22}$. Mathematically it can be written as
@@ -412,6 +481,18 @@ Programatically the divergence of vector-quantity can easily be obtained by acce
 \beqn 
 \bnabla \bullet \mathbf{a} = \mathbb{1} \ \bullet \ \text{diag}(\bnabla \mathbf{a})
 \eeqn 
+\newline
+\newline
+In ChiTech this functionality is:
+\begin{lstlisting}[language=c++]
+chi_mesh::TensorRank2Dim3 grad_a;
+double div_a = grad_a.DiagSum();
+//
+// or
+//
+chi_mesh::Vector3 b = grad_a.Diag();
+double div_a1 = chi_mesh::Vector3(1.0,1.0,1.0).Dot(b);
+\end{lstlisting}
 
 \vspace{1cm}
 \subsection{Unstructured meshes and the treatment of certain quantities}
@@ -478,7 +559,6 @@ The first order Green-Gauss approximation reduces essentially to a summation ove
 where $\phi_f$ is taken as a linear interpolation between the adjoining face's cells. This formulation poses some challenges when undetermined faces fluxes are encountered, as is the case with boundaries and unstructured meshes, and therefore we require an algorithm to compensate. Therefore the following algorithm is applied:
 
 \begin{enumerate}
-\item Assume $\bnabla \phi^{(n-1)} = 0$
 \item Compute $\bnabla \phi^{(n)}$ over the entire domain using $\frac{1}{V}\sum_f \mathbf{A}_f \phi_f$ where $\phi_f$ is computed from \eqref{eq:linear_interpolation} as
 \beq
 \phi_f &= 
@@ -498,8 +578,33 @@ and boundary faces are computed as
 \item Repeat 2 to 4.
 \end{enumerate}
 
+In most cases the iteration process adds little to the iterative performance and it can be sufficient to just terminate after a single iteration.
+
+
+\vspace{1cm}
 \textbf{Least squares:}\newline
-TBC  
+Section 9.3 in \cite{MMD} provides a very good description of how the weighted Least-Squares gradients are determined. In that formulation
+
+\beq
+\begin{Bmatrix}
+\sum_f w_f \mathbf{PN} \otimes \mathbf{PN} 
+\end{Bmatrix}
+\bnabla \phi_P
+=
+\sum_f
+\begin{bmatrix}
+w_f \mathbf{PN} (\phi_N - \phi_P)
+\end{bmatrix}
+\eeq   
+where
+\beq 
+w_f = \frac{1}{(|| \mathbf{PN} ||_2)^2}
+\eeq 
+On boundaries, $\mathbf{PN}$ and $\phi_N$ is replaced by $\mathbf{PF}$ and $\phi_b$.
+\newline
+\newline
+Note that this results in a system that needs to solved for each cell.
+
 
 \subsubsection{Flux of a gradient}
 A diffusion quantity that often arises in unstructured meshes is $\mathbf{A}_f \bigcdot (\bnabla \phi)_f$, where $\mathbf{A}_f$ is the area vector formed by the face area $A_f$ and its normal $n$ as $\mathbf{A}_f = A_f \mathbf{n}$. When we deal with skewed faces, this diffusion  term needs some treatment. In general, since the face is skewed, the flux at the cell face develops additional components other than the orthogonal component along the direction of $\mathbf{PN}$.  These additional components are not intuitive to understand and the paper by Sezai \cite{Sezai} lacks explanation of some of the items in its graphical illustrations. Refer to Figure \ref{fig:faceaveragesskewed} for the following discussion.
