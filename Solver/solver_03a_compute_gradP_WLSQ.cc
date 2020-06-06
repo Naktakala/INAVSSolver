@@ -1,11 +1,15 @@
 #include "solver.h"
 
+#include "chi_log.h"
+
 #include "ChiMath/chi_math.h"
 
 //###################################################################
 /** Computes the gradient of the pressure.*/
 void INAVSSolver::ComputeGradP_WLSQ(Vec v_gradp, Vec v_p, bool limited)
 {
+  auto& log = ChiLog::GetInstance();
+
   //============================================= Create work vectors
   Vec v_gradp_old;
   VecDuplicate(v_gradp,&v_gradp_old);

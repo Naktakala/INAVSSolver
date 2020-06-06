@@ -14,133 +14,89 @@ void INAVSSolver::Execute()
   auto& log = ChiLog::GetInstance();
   log.Log(LOG_0) << "Executing Incompressible Navier Stokes Solver";
 
-  size_t tag_gradP_gg = log.GetRepeatingEventTag("GradP_GG           ");
-  size_t tag_gradU    = log.GetRepeatingEventTag("GradP_U            ");
-  size_t tag_mom_assy = log.GetRepeatingEventTag("Momentum Assembly  ");
-  size_t tag_mom_slv0 = log.GetRepeatingEventTag("Momentum solve - 0 ");
-  size_t tag_mom_slv1 = log.GetRepeatingEventTag("Momentum solve - 1 ");
-  size_t tag_comp_mf  = log.GetRepeatingEventTag("Mass flux          ");
-  size_t tag_pc_assy  = log.GetRepeatingEventTag("PCorr Assembly     ");
-  size_t tag_pc_slv0  = log.GetRepeatingEventTag("PCorr solve - 0    ");
-  size_t tag_pc_slv1  = log.GetRepeatingEventTag("PCorr solve - 1    ");
-  size_t tag_gradP_pc = log.GetRepeatingEventTag("GradP_PC           ");
-  size_t tag_corr     = log.GetRepeatingEventTag("Corrections        ");
+  tag_gradP_gg = log.GetRepeatingEventTag("GradP_GG           ");
+  tag_gradU    = log.GetRepeatingEventTag("GradP_U            ");
+  tag_mom_assy = log.GetRepeatingEventTag("Momentum Assembly  ");
+  tag_mom_slv1 = log.GetRepeatingEventTag("Momentum solve - 1 ");
+  tag_comp_mf  = log.GetRepeatingEventTag("Mass flux          ");
+  tag_pc_assy  = log.GetRepeatingEventTag("PCorr Assembly     ");
+  tag_pc_slv1  = log.GetRepeatingEventTag("PCorr solve - 1    ");
+  tag_gradP_pc = log.GetRepeatingEventTag("GradP_PC           ");
+  tag_corr     = log.GetRepeatingEventTag("Corrections        ");
 
   for (int i=0; i<1000; ++i)
   {
+
+
     log.LogEvent(tag_gradP_gg,ChiLog::EventType::EVENT_BEGIN);
     ComputeGradP_WLSQ(x_gradp, x_p);
-    ComputeGradP_WLSQ(x_gradp, x_p, true);
+//    ComputeGradP_WLSQ(x_gradp, x_p, true);
     log.LogEvent(tag_gradP_gg,ChiLog::EventType::EVENT_END);
 
     log.LogEvent(tag_gradU,ChiLog::EventType::EVENT_BEGIN);
     ComputeGradU_WLSQ();
-    ComputeGradU_WLSQ(true);
+//    ComputeGradU_WLSQ(true);
     log.LogEvent(tag_gradU,ChiLog::EventType::EVENT_END);
 
-    log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_BEGIN);
     AssembleMomentumSystem();
-    log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_END);
 
-    log.LogEvent(tag_mom_slv0,ChiLog::EventType::EVENT_BEGIN);
-    for (int dim : dimensions)
-      KSPSetOperators(lin_solver_u[dim].ksp,A_u[dim],A_u[dim]);
-    log.LogEvent(tag_mom_slv0,ChiLog::EventType::EVENT_END);
+    ComputeMassFluxMMIM();
 
-    log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_BEGIN);
-    for (int dim : dimensions)
-      KSPSolve(lin_solver_u[dim].ksp,b_u[dim],x_u[dim]);
-    log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_END);
-
-    log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_BEGIN);
-    for (int dim : dimensions)
-      VecGhostUpdateBegin(x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
-    for (int dim : dimensions)
-      VecGhostUpdateEnd  (x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
-    ComputeGradUOrMassFlux(COMPUTE_MF);
-    log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_END);
-
-    log.LogEvent(tag_pc_assy,ChiLog::EventType::EVENT_BEGIN);
-    AssemblePressureCorrectionSystem();
-    log.LogEvent(tag_pc_assy,ChiLog::EventType::EVENT_END);
-
-    log.LogEvent(tag_pc_slv0,ChiLog::EventType::EVENT_BEGIN);
-    KSPSetOperators(lin_solver_p.ksp,A_pc,A_pc);
-    log.LogEvent(tag_pc_slv0,ChiLog::EventType::EVENT_END);
-
-    log.LogEvent(tag_pc_slv1,ChiLog::EventType::EVENT_BEGIN);
-    VecSet(x_pc,0.0);
-    KSPSolve(lin_solver_p.ksp, b_pc, x_pc);
-
-    VecGhostUpdateBegin(x_pc,INSERT_VALUES,SCATTER_FORWARD);
-    VecGhostUpdateEnd  (x_pc,INSERT_VALUES,SCATTER_FORWARD);
-    log.LogEvent(tag_pc_slv1,ChiLog::EventType::EVENT_END);
+    AssembleSolvePressureCorrectionSystem();
 
     log.LogEvent(tag_gradP_pc,ChiLog::EventType::EVENT_BEGIN);
-//    int iref=0;
-//    double pref=0.0;
-//    VecGetValues(x_pc,1,&iref,&pref);
-//    VecShift(x_pc,-pref);
-
-//    ComputeGradP_GreenGauss(x_gradp, x_pc);
-    ComputeGradP_WLSQ(x_gradp, x_pc);
-    ComputeGradP_WLSQ(x_gradp, x_pc, true);
+    VecSet(x_gradpc,0.0);
+    ComputeGradP_WLSQ(x_gradpc, x_pc);
+//    ComputeGradP_WLSQ(x_gradpc, x_pc, true);
     log.LogEvent(tag_gradP_pc,ChiLog::EventType::EVENT_END);
 
-    log.LogEvent(tag_corr,ChiLog::EventType::EVENT_BEGIN);
     ComputeCorrections();
-    log.LogEvent(tag_corr,ChiLog::EventType::EVENT_END);
 
     //================================= Logs
+    double max_v = 0.0; VecMax(x_u[U_X],NULL,&max_v);
+    double max_p = 0.0; VecMax(x_p,NULL,&max_p);
+    double min_p = 0.0; VecMin(x_p,NULL,&min_p);
+    std::vector<double> res_mom_norm(num_dimensions,0.0);
+
+    std::vector<Vec> res_mom(num_dimensions);
+    for (int dim : dimensions)
     {
-      double max_v = 0.0; VecMax(x_u[U_X],NULL,&max_v);
-      double max_p = 0.0; VecMax(x_p,NULL,&max_p);
-      double min_p = 0.0; VecMin(x_p,NULL,&min_p);
-      std::vector<double> res_mom_norm(num_dimensions,0.0);
-
-      std::vector<Vec> res_mom(num_dimensions);
-      for (int dim : dimensions)
-      {
-        KSPBuildResidual(lin_solver_u[dim].ksp,NULL,NULL,&res_mom[dim]);
-        VecNorm(res_mom[dim],NORM_2,&res_mom_norm[dim]);
-        VecDestroy(&res_mom[dim]);
-      }
-
-
-      char buf[200];
-      if (num_dimensions == 2)
-        sprintf(buf,"Iteration %4d max_v=%.7f max_p=%+.6f "
-                    "min_p=%+.6f "
-                    "Residuam Momentum-X=%.6e "
-                    "Residuam Momentum-Y=%.6e",
-                    i, max_v, max_p, min_p,
-                    res_mom_norm[U_X],
-                    res_mom_norm[U_Y]);
-      if (num_dimensions == 3)
-        sprintf(buf,"Iteration %4d max_v=%.7f max_p=%+.6f "
-                    "min_p=%+.6f "
-                    "Residuam Momentum-X=%.6e "
-                    "Residuam Momentum-Y=%.6e "
-                    "Residuam Momentum-Z=%.6e",
-                i, max_v, max_p, min_p,
-                res_mom_norm[U_X],
-                res_mom_norm[U_Y],
-                res_mom_norm[U_Z]);
-      log.Log(LOG_0) << chi_program_timer.GetTimeString() << " " << buf;
+      KSPBuildResidual(lin_solver_u[dim].ksp,NULL,NULL,&res_mom[dim]);
+      VecNorm(res_mom[dim],NORM_2,&res_mom_norm[dim]);
+      VecDestroy(&res_mom[dim]);
     }
 
-  }
+
+    char buf[200];
+    if (num_dimensions == 2)
+      sprintf(buf,"Iteration %4d max_v=%.7f max_p=%+.6f "
+                  "min_p=%+.6f "
+                  "Residuam Momentum-X=%.6e "
+                  "Residuam Momentum-Y=%.6e",
+              i, max_v, max_p, min_p,
+              res_mom_norm[U_X],
+              res_mom_norm[U_Y]);
+    if (num_dimensions == 3)
+      sprintf(buf,"Iteration %4d max_v=%.7f max_p=%+.6f "
+                  "min_p=%+.6f "
+                  "Residuam Momentum-X=%.6e "
+                  "Residuam Momentum-Y=%.6e "
+                  "Residuam Momentum-Z=%.6e",
+              i, max_v, max_p, min_p,
+              res_mom_norm[U_X],
+              res_mom_norm[U_Y],
+              res_mom_norm[U_Z]);
+    log.Log(LOG_0) << chi_program_timer.GetTimeString() << " " << buf;
+  }//for iterations
 
   //================================= Print time summaries
   log.Log(LOG_0) << "GradP_GG           " << log.ProcessEvent(tag_gradP_gg,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
   log.Log(LOG_0) << "GradP_U            " << log.ProcessEvent(tag_gradU   ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
-  log.Log(LOG_0) << "Momentum Assembly  " << log.ProcessEvent(tag_mom_assy,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
-  log.Log(LOG_0) << "Momentum solve - 0 " << log.ProcessEvent(tag_mom_slv0,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
-  log.Log(LOG_0) << "Momentum solve - 1 " << log.ProcessEvent(tag_mom_slv1,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
-  log.Log(LOG_0) << "Mass flux          " << log.ProcessEvent(tag_comp_mf ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
-  log.Log(LOG_0) << "PCorr Assembly     " << log.ProcessEvent(tag_pc_assy ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
-  log.Log(LOG_0) << "PCorr solve - 0    " << log.ProcessEvent(tag_pc_slv0 ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
-  log.Log(LOG_0) << "PCorr solve - 1    " << log.ProcessEvent(tag_pc_slv1 ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
+  log.Log(LOG_0) << "Momentum-Assembly  " << log.ProcessEvent(tag_mom_assy,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
+  log.Log(LOG_0) << "Momentum-Solve     " << log.ProcessEvent(tag_mom_slv1,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
+  log.Log(LOG_0) << "Mass-flux          " << log.ProcessEvent(tag_comp_mf ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
+  log.Log(LOG_0) << "PCorr-Assembly     " << log.ProcessEvent(tag_pc_assy ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
+  log.Log(LOG_0) << "PCorr-solve        " << log.ProcessEvent(tag_pc_slv1 ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
   log.Log(LOG_0) << "GradP_PC           " << log.ProcessEvent(tag_gradP_pc,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
   log.Log(LOG_0) << "Corrections        " << log.ProcessEvent(tag_corr    ,ChiLog::EventOperation::TOTAL_DURATION)/1.0e6;
 

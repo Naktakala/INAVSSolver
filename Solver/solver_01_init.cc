@@ -145,6 +145,7 @@ void INAVSSolver::Initialize()
                                      ndof_globl_gradp,
                                      ndof_ghost_gradp,
                                      ghost_ids_gradp);
+    VecDuplicate(x_gradp,&x_gradpc);
 
     VecDuplicate(x_p,&x_pc);
     VecDuplicate(x_p,&b_pc);
@@ -210,13 +211,6 @@ void INAVSSolver::Initialize()
     bndry_pressures[c].resize(cell.faces.size(),0.0);
 
     cell_info[c].a_N_f.resize(cell.faces.size());
-
-    cell_info[c].info_set.resize(cell.faces.size(),false);
-    cell_info[c].A_p_div_d_PN.resize(cell.faces.size(),0.0);
-    cell_info[c].A_t.resize(cell.faces.size());
-    cell_info[c].FiF.resize(cell.faces.size());
-    cell_info[c].rP.resize(cell.faces.size(),0.0);
-    cell_info[c].r_f.resize(cell.faces.size(),0.0);
 
     for (auto& face : cell.faces)
     {

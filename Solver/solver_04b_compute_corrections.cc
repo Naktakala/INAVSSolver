@@ -1,5 +1,7 @@
 #include "solver.h"
 
+#include "chi_log.h"
+
 extern double U;
 extern double mu;
 extern double rho;
@@ -11,13 +13,16 @@ extern double alpha_u;
 /***/
 void INAVSSolver::ComputeCorrections()
 {
+  auto& log = ChiLog::GetInstance();
+  log.LogEvent(tag_corr,ChiLog::EventType::EVENT_BEGIN);
+
   //============================================= Get local views
   std::vector<Vec> x_a_PL(3);
   Vec x_gradpL;
   Vec x_pcL;
   for (int dim : dimensions)
     VecGhostGetLocalForm(x_a_P[dim],&x_a_PL[dim]);
-  VecGhostGetLocalForm(x_gradp,&x_gradpL);
+  VecGhostGetLocalForm(x_gradpc,&x_gradpL);
   VecGhostGetLocalForm(x_pc,&x_pcL);
 
   std::vector<const double*> d_a_PL(3);
@@ -33,7 +38,7 @@ void INAVSSolver::ComputeCorrections()
   {
     auto cell_fv_view = fv_sdm.MapFeView(cell.local_id);
 
-    double V = cell_fv_view->volume;
+    double V_P = cell_fv_view->volume;
 
     //====================================== Map row indices of unknowns
     int iu            = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
@@ -50,7 +55,7 @@ void INAVSSolver::ComputeCorrections()
     double            a_P_avg;
 
     VecGetValues(x_pc,1,&ip,&p_P);
-    VecGetValues(x_gradp, num_dimensions, igradp.data(), &gradp_P(0));
+    VecGetValues(x_gradpc, num_dimensions, igradp.data(), &gradp_P(0));
     for (int dim : dimensions)
       VecGetValues(x_a_P[dim],1,&iu,&a_P(dim));
     for (int i : dimensions)
@@ -76,6 +81,10 @@ void INAVSSolver::ComputeCorrections()
           adj_cell = &grid->local_cells[face.GetNeighborLocalID(grid)];
         else
           adj_cell = grid->cells[face.neighbor];
+
+        auto adj_cell_fv_view = fv_sdm.MapNeighborFeView(face.neighbor);
+
+        double V_N = adj_cell_fv_view->volume;
 
         //============================= Map row indices of unknowns
         int lj0  = fv_sdm.MapDOFLocal(adj_cell,&uk_man_u,VELOCITY);
@@ -117,7 +126,7 @@ void INAVSSolver::ComputeCorrections()
         double delta_p                 = p_N - p_P;
         chi_mesh::Vector3 a_f          = (1.0-rP)*a_P     + rP*a_N;
         chi_mesh::Vector3 grad_p_f_avg = (1.0-rP)*gradp_P + rP*gradp_N;
-
+        double V_f                     = (1.0-rP)*V_P     + rP*V_N;
         chi_mesh::Vector3 a_f_inv = a_f.InverseZeroIfSmaller(1.0e-10);
 
         //============================= Compute grad_p_f
@@ -127,33 +136,18 @@ void INAVSSolver::ComputeCorrections()
         double m_f_old = mass_fluxes[cell.local_id][f];
 
         mass_fluxes[cell.local_id][f] =
-          m_f_old - rho*alpha_u*V*A_f*n.Dot(a_f_inv*grad_pc_f);
-
-        double p_avg = (p_P / a_P_avg + p_N / a_N_avg) /
-                       (1.0/a_P_avg + 1.0/a_N_avg);
-
-        chi_mesh::Vector3 Dp_dot_gradpc = (alpha_u*a_f_inv)*A_f*n*p_avg;
-
-        uc = uc - Dp_dot_gradpc;
+          m_f_old - rho*alpha_u*V_f*A_f*n.Dot(a_f_inv * grad_pc_f);
       }//interior face
-      //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
-      else
-      {
-        auto ds = face.centroid - cell.centroid;
-
-        auto a_P_inv = a_P.InverseZeroIfSmaller(1.0e-10);
-
-        double p_avg = p_P + gradp_P.Dot(ds);
-
-        chi_mesh::Vector3 Dp_dot_gradpc = (alpha_u*a_P_inv)*A_f*n*p_avg;
-
-        uc = uc - Dp_dot_gradpc;
-      }
     }//for faces
+
+    auto a_inv = a_P.InverseZeroIfSmaller(1.0e-10);
+    uc = -alpha_u * V_P * a_inv * gradp_P;
 
     //====================================== Set vector values
     for (auto dim : dimensions)
       VecSetValue(x_u[dim], iu, uc[dim], ADD_VALUES);
+
+
 
   }//for cell
 
@@ -165,7 +159,7 @@ void INAVSSolver::ComputeCorrections()
 
   for (int dim : dimensions)
     VecGhostRestoreLocalForm(x_a_P[dim],&x_a_PL[dim]);
-  VecGhostRestoreLocalForm(x_gradp,&x_gradpL);
+  VecGhostRestoreLocalForm(x_gradpc,&x_gradpL);
   VecGhostRestoreLocalForm(x_pc,&x_pcL);
 
   //============================================= Assemble x_u
@@ -185,4 +179,5 @@ void INAVSSolver::ComputeCorrections()
   VecGhostUpdateBegin(x_p,INSERT_VALUES,SCATTER_FORWARD);
   VecGhostUpdateEnd  (x_p,INSERT_VALUES,SCATTER_FORWARD);
 
+  log.LogEvent(tag_corr,ChiLog::EventType::EVENT_END);
 }

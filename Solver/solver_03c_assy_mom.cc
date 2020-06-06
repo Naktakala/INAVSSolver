@@ -1,7 +1,6 @@
 #include "solver.h"
 
 #include "chi_log.h"
-extern ChiLog& chi_log;
 
 extern double U;
 extern double mu;
@@ -14,6 +13,9 @@ extern double alpha_u;
 /**Assemble conservation of momentum system.*/
 void INAVSSolver::AssembleMomentumSystem()
 {
+  auto& log = ChiLog::GetInstance();
+  log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_BEGIN);
+
   //============================================= Declare aliases
   typedef std::vector<int> VecInt;
   typedef std::vector<VecInt> VecVecInt;
@@ -328,4 +330,22 @@ void INAVSSolver::AssembleMomentumSystem()
     VecGhostUpdateBegin(x_a_P[dim],INSERT_VALUES,SCATTER_FORWARD);
   for (int dim : dimensions)
     VecGhostUpdateEnd  (x_a_P[dim],INSERT_VALUES,SCATTER_FORWARD);
+
+  log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_END);
+
+  //============================================= Solve the system
+  log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_BEGIN);
+  for (int dim : dimensions)
+  {
+    KSPSetOperators(lin_solver_u[dim].ksp,A_u[dim],A_u[dim]);
+    KSPSolve(lin_solver_u[dim].ksp,b_u[dim],x_u[dim]);
+  }
+
+  //============================================= Scatter velocities
+  for (int dim : dimensions)
+    VecGhostUpdateBegin(x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
+  for (int dim : dimensions)
+    VecGhostUpdateEnd  (x_u[dim],INSERT_VALUES,SCATTER_FORWARD);
+
+  log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_END);
 }

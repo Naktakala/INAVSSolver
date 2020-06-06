@@ -10,9 +10,24 @@
 class INAVSSolver
 {
 public:
-  struct
+  struct Options
   {
     bool steady = true;
+
+    //Gradient options
+    enum class GradientMethod {
+      GreenGauss=1, ///< Simple Green-Gauss
+      WLSQ=2        ///< Weighted least-squares
+      };
+    enum class GradientLimiter {
+      None                    = 1,
+      Venkatakrishnan         = 2,
+      MinMod                  = 3,
+      ModifiedVenkatakrishnan = 4
+    };
+    GradientMethod  gradient_method = GradientMethod::WLSQ;
+    GradientLimiter gradient_limiter = GradientLimiter::Venkatakrishnan;
+
   }options;
 
   int num_dimensions = 2;
@@ -75,6 +90,7 @@ public:
 
   // Pressure correction
   Vec              x_pc;
+  Vec              x_gradpc;
   Vec              b_pc;
 
   // Cell properties
@@ -119,13 +135,6 @@ public:
     chi_mesh::Vector3 a_P = chi_mesh::Vector3(1.0,1.0,1.0);
     chi_mesh::Vector3 b_P;
     std::vector<chi_mesh::Vector3> a_N_f;
-
-    std::vector<bool>              info_set;
-    std::vector<double>            A_p_div_d_PN;
-    std::vector<chi_mesh::Vector3> A_t;
-    std::vector<chi_mesh::Vector3> FiF;
-    std::vector<double>            rP;
-    std::vector<double>            r_f;
   };
   std::vector<CellInfo> cell_info;
 
@@ -135,6 +144,17 @@ public:
   std::vector<std::vector<double>> bndry_pressures;
   std::vector<bool> cell_bndry_flags;
 
+  //=================================== Timing tags
+  size_t tag_gradP_gg;
+  size_t tag_gradU;
+  size_t tag_mom_assy;
+  size_t tag_mom_slv1;
+  size_t tag_comp_mf;
+  size_t tag_pc_assy;
+  size_t tag_pc_slv1;
+  size_t tag_gradP_pc;
+  size_t tag_corr;
+
   //=================================== Methods
 public:
   void Initialize();
@@ -143,11 +163,11 @@ public:
 
   void ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p);
   void ComputeGradP_WLSQ(Vec v_gradp, Vec v_p,bool limited=false);
-  void ComputeGradUOrMassFlux(bool no_mass_flux_update=true);
+  void ComputeMassFluxMMIM();
   void ComputeGradU_WLSQ(bool limited=false);
   void AssembleMomentumSystem();
 
-  void AssemblePressureCorrectionSystem();
+  void AssembleSolvePressureCorrectionSystem();
   void ComputeCorrections();
 
 };

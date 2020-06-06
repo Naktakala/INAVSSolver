@@ -1,5 +1,7 @@
 #include "solver.h"
 
+#include "chi_log.h"
+
 extern double U;
 extern double mu;
 extern double rho;
@@ -9,8 +11,11 @@ extern double alpha_u;
 
 //###################################################################
 /**Assembles the pressure system.*/
-void INAVSSolver::AssemblePressureCorrectionSystem()
+void INAVSSolver::AssembleSolvePressureCorrectionSystem()
 {
+  auto& log = ChiLog::GetInstance();
+  log.LogEvent(tag_pc_assy,ChiLog::EventType::EVENT_BEGIN);
+
   //============================================= Reset matrix and RHS
   MatZeroEntries(A_pc);
   VecSet(b_pc, 0.0);
@@ -167,4 +172,16 @@ void INAVSSolver::AssemblePressureCorrectionSystem()
 
   VecAssemblyBegin(b_pc);
   VecAssemblyEnd(b_pc);
+
+  log.LogEvent(tag_pc_assy,ChiLog::EventType::EVENT_END);
+
+  //============================================= Solve the system
+  log.LogEvent(tag_pc_slv1,ChiLog::EventType::EVENT_BEGIN);
+  KSPSetOperators(lin_solver_p.ksp,A_pc,A_pc);
+  VecSet(x_pc,0.0);
+  KSPSolve(lin_solver_p.ksp, b_pc, x_pc);
+
+  VecGhostUpdateBegin(x_pc,INSERT_VALUES,SCATTER_FORWARD);
+  VecGhostUpdateEnd  (x_pc,INSERT_VALUES,SCATTER_FORWARD);
+  log.LogEvent(tag_pc_slv1,ChiLog::EventType::EVENT_END);
 }

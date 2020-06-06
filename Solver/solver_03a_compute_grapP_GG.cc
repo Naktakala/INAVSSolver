@@ -1,9 +1,13 @@
 #include "solver.h"
 
+#include "chi_log.h"
+
 //###################################################################
 /** Computes the gradient of the pressure.*/
 void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
 {
+  auto& log = ChiLog::GetInstance();
+
   //============================================= Create work vectors
   Vec v_gradp_old;
   Vec v_cell_vols;

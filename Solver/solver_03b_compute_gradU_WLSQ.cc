@@ -4,8 +4,6 @@
 
 #include "chi_log.h"
 
-extern ChiLog& chi_log;
-
 extern double U;
 extern double mu;
 extern double rho;
@@ -18,6 +16,8 @@ extern double alpha_u;
  * are interpolated using the momentum equation.*/
 void INAVSSolver::ComputeGradU_WLSQ(bool limited)
 {
+  auto& log = ChiLog::GetInstance();
+
   typedef std::vector<int> VecInt;
   typedef std::vector<VecInt> VecVecInt;
   const int ND = num_dimensions;

@@ -1,5 +1,7 @@
 #include "solver.h"
 
+#include "chi_log.h"
+
 extern double U;
 extern double mu;
 extern double rho;
@@ -10,43 +12,27 @@ extern double alpha_u;
 //###################################################################
 /** Computes the gradient of the velocity where face velocities
  * are interpolated using the momentum equation.*/
-void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
+void INAVSSolver::ComputeMassFluxMMIM()
 {
+  auto& log = ChiLog::GetInstance();
+  log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_BEGIN);
+
   typedef std::vector<int> VecInt;
   typedef std::vector<VecInt> VecVecInt;
   const int ND = num_dimensions;
 
-  if (no_mass_flux_update)
-    VecSet(x_gradu,0.0);
-
   //============================================= Get local views
-  std::vector<Vec> x_uL(3);
-  std::vector<Vec> x_umimL(3);
-  std::vector<Vec> x_a_PL(3);
-  Vec x_gradpL;
-  Vec x_pL;
-  for (int dim : dimensions)
-  {
-    VecGhostGetLocalForm(x_u[dim],&x_uL[dim]);
-    VecGhostGetLocalForm(x_a_P[dim],&x_a_PL[dim]);
-  }
-  VecGhostGetLocalForm(x_gradp,&x_gradpL);
-  VecGhostGetLocalForm(x_p,&x_pL);
-
-  std::vector<const double*> d_uL(3);
-  std::vector<const double*> d_umimL(3);
-  std::vector<const double*> d_a_PL(3);
-  const double* d_pL;
-  const double* d_gradpL;
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_uL(3);
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_umimL(3);
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_a_PL(3);
 
   for (int dim : dimensions)
   {
-    VecGetArrayRead(x_uL[dim],&d_uL[dim]);
-    VecGetArrayRead(x_a_PL[dim],&d_a_PL[dim]);
+    d_uL[dim]   = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_u[dim]);
+    d_a_PL[dim] = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_a_P[dim]);
   }
-  VecGetArrayRead(x_pL,&d_pL);
-  VecGetArrayRead(x_gradpL,&d_gradpL);
-
+  auto d_pL     = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_p);
+  auto d_gradpL = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_gradp);
 
   //============================================= Compute MIM velocities
   for (auto& cell : grid->local_cells)
@@ -109,9 +95,7 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
 
   //============================================= Get local view of umim
   for (int dim : dimensions)
-    VecGhostGetLocalForm(x_umim[dim],&x_umimL[dim]);
-  for (int dim : dimensions)
-    VecGetArrayRead(x_umimL[dim],&d_umimL[dim]);
+    d_umimL[dim] = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_umim[dim]);
 
   //============================================= Compute the gradient
   for (auto& cell : grid->local_cells)
@@ -224,63 +208,22 @@ void INAVSSolver::ComputeGradUOrMassFlux(bool no_mass_flux_update)
         //============================= Compute face velocities
         chi_mesh::Vector3 u_f = (alpha_u*a_f_inv)*(u_mim_f - V_f * grad_p_f);
 
-        if (no_mass_flux_update)
-          for (int dim : dimensions)
-            a_gradu[dim] = a_gradu[dim] + A_f*n*u_f[dim];
-        else
-          mass_fluxes[cell.local_id][f] = rho*A_f*n.Dot(u_f);
+        mass_fluxes[cell.local_id][f] = rho*A_f*n.Dot(u_f);
       }//not bndry
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
-      else if (no_mass_flux_update)
-      {
-        if (face.normal.Dot(chi_mesh::Vector3(0.0,1.0,0.0))>0.999)
-        {
-          auto u_f = chi_mesh::Vector3(U,0.0,0.0);
-
-          for (int dim : dimensions)
-            a_gradu[dim] = a_gradu[dim] + A_f*n*u_f[dim];
-        }//if north face
-      }//bndry
     }//for faces
 
-    //====================================== Set vector values
-    if (no_mass_flux_update)
-      for (int dimv : dimensions)
-        for (int dim : dimensions)
-          VecSetValue(x_gradu,igrad_u[dimv][dim],a_gradu[dimv][dim]/V_P,ADD_VALUES);
   }//for cells
 
   //============================================= Restore local views
   for (int dim : dimensions)
   {
-    VecRestoreArrayRead(x_uL[dim],&d_uL[dim]);
-    VecRestoreArrayRead(x_umimL[dim],&d_umimL[dim]);
-    VecRestoreArrayRead(x_a_PL[dim],&d_a_PL[dim]);
+    chi_math::PETScUtils::RestoreGhostVectorLocalViewRead(x_u[dim],d_uL[dim]);
+    chi_math::PETScUtils::RestoreGhostVectorLocalViewRead(x_umim[dim],d_umimL[dim]);
+    chi_math::PETScUtils::RestoreGhostVectorLocalViewRead(x_a_P[dim],d_a_PL[dim]);
   }
-  VecRestoreArrayRead(x_pL,&d_pL);
-  VecRestoreArrayRead(x_gradpL,&d_gradpL);
+  chi_math::PETScUtils::RestoreGhostVectorLocalViewRead(x_p,d_pL);
+  chi_math::PETScUtils::RestoreGhostVectorLocalViewRead(x_gradp,d_gradpL);
 
-  for (int dim : dimensions)
-  {
-    VecGhostRestoreLocalForm(x_u[dim],&x_uL[dim]);
-    VecGhostRestoreLocalForm(x_umim[dim],&x_umimL[dim]);
-    VecGhostRestoreLocalForm(x_a_P[dim],&x_a_PL[dim]);
-  }
-  VecGhostRestoreLocalForm(x_p,&x_pL);
-  VecGhostRestoreLocalForm(x_gradp,&x_gradpL);
-
-
-  //============================================= Assemble applicable units
-  if (no_mass_flux_update)
-  {
-    VecAssemblyBegin(x_gradu);
-    VecAssemblyEnd(x_gradu);
-  }
-
-  //============================================= Scatter applicable units
-  if (no_mass_flux_update)
-  {
-    VecGhostUpdateBegin(x_gradu,INSERT_VALUES,SCATTER_FORWARD);
-    VecGhostUpdateEnd  (x_gradu,INSERT_VALUES,SCATTER_FORWARD);
-  }
+  log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_END);
 }
