@@ -4,7 +4,8 @@
 
 //###################################################################
 /** Computes the gradient of the pressure.*/
-void INAVSSolver::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
+template<int NDD>
+void INAVSSolver<NDD>::ComputeGradP_GreenGauss(Vec v_gradp, Vec v_p)
 {
   auto& log = ChiLog::GetInstance();
 

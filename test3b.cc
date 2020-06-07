@@ -11,6 +11,17 @@
 extern ChiMPI& chi_mpi;
 
 #include "Solver/solver.h"
+#include "Solver/solver_00a_init.h"
+#include "Solver/solver_00aa_init_properties.h"
+#include "Solver/solver_00b_execute.h"
+#include "Solver/solver_01aa_compute_gradP_WLSQ.h"
+#include "Solver/solver_01ab_compute_grapP_GG.h"
+#include "Solver/solver_01ba_compute_gradU_WLSQ.h"
+#include "Solver/solver_03_compute_massfluxMMIM.h"
+#include "Solver/solver_02_assy_solve_mom.h"
+#include "Solver/solver_04_assy_solve_pcorr.h"
+#include "Solver/solver_05_compute_corrections.h"
+
 
 double U=100.0;
 double mu=0.01;
@@ -55,7 +66,7 @@ int main(int argc, char* argv[])
 
 
   //================================= Setup Solver
-  INAVSSolver* solver = new INAVSSolver;
+  INAVSSolver<2>* solver = new INAVSSolver<2>;
   solver->options.steady = true;
   solver->Initialize();
 

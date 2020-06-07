@@ -13,7 +13,8 @@ extern double alpha_u;
 
 //###################################################################
 /**Initializes the cell and material properties.*/
-void INAVSSolver::InitProperties()
+template<int NDD>
+void INAVSSolver<NDD>::InitProperties()
 {
   for (auto& cell : grid->local_cells)
   {

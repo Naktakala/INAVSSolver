@@ -6,7 +6,11 @@
 #include "ChiMath/UnknownManager/unknown_manager.h"
 #include "ChiMath/SpatialDiscretization/FiniteVolume/fv.h"
 
+#include "ChiMath/chi_math_vectorNX.h"
+#include "ChiMath/chi_math_tensorRNX.h"
+
 //###################################################################
+template<int NDD>
 class INAVSSolver
 {
 public:
@@ -30,7 +34,7 @@ public:
 
   }options;
 
-  int num_dimensions = 2;
+  const int num_dimensions;
   std::vector<int> dimensions;
 
   //=================================== Constants
@@ -131,10 +135,10 @@ public:
 public:
   struct CellInfo
   {
-    chi_mesh::Vector3 a_t;
-    chi_mesh::Vector3 a_P = chi_mesh::Vector3(1.0,1.0,1.0);
-    chi_mesh::Vector3 b_P;
-    std::vector<chi_mesh::Vector3> a_N_f;
+    chi_math::VectorN<NDD> a_t;
+    chi_math::VectorN<NDD> a_P = chi_mesh::Vector3(1.0,1.0,1.0);
+    chi_math::VectorN<NDD> b_P;
+    std::vector<chi_math::VectorN<NDD>> a_N_f;
   };
   std::vector<CellInfo> cell_info;
 
@@ -157,6 +161,8 @@ public:
 
   //=================================== Methods
 public:
+       INAVSSolver(int nd=2) : num_dimensions(nd)
+       {}
   void Initialize();
   void InitProperties();
   void Execute();
@@ -169,7 +175,6 @@ public:
 
   void AssembleSolvePressureCorrectionSystem();
   void ComputeCorrections();
-
 };
 
 #endif 

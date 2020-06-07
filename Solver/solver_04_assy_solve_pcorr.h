@@ -11,7 +11,8 @@ extern double alpha_u;
 
 //###################################################################
 /**Assembles the pressure system.*/
-void INAVSSolver::AssembleSolvePressureCorrectionSystem()
+template<int NDD>
+void INAVSSolver<NDD>::AssembleSolvePressureCorrectionSystem()
 {
   auto& log = ChiLog::GetInstance();
   log.LogEvent(tag_pc_assy,ChiLog::EventType::EVENT_BEGIN);
@@ -21,11 +22,11 @@ void INAVSSolver::AssembleSolvePressureCorrectionSystem()
   VecSet(b_pc, 0.0);
 
   //============================================= Get local views
-  std::vector<Vec> x_a_PL(3);
+  std::vector<Vec> x_a_PL(NDD);
   for (int dim : dimensions)
     VecGhostGetLocalForm(x_a_P[dim],&x_a_PL[dim]);
 
-  std::vector<const double*> d_a_PL(3);
+  std::vector<const double*> d_a_PL(NDD);
   for (int dim : dimensions)
     VecGetArrayRead(x_a_PL[dim],&d_a_PL[dim]);
 
@@ -41,7 +42,7 @@ void INAVSSolver::AssembleSolvePressureCorrectionSystem()
     int ip = fv_sdm.MapDOF(&cell,&uk_man_p,PRESSURE);
 
     //====================================== Get values
-    chi_mesh::Vector3 a_P;
+    chi_math::VectorN<NDD> a_P;
     for (int dim : dimensions)
       VecGetValues(x_a_P[dim] , 1, &iu, &a_P(dim));
 
@@ -59,7 +60,7 @@ void INAVSSolver::AssembleSolvePressureCorrectionSystem()
     {
       ++f;
       auto A_f = cell_fv_view->face_area[f];
-      chi_mesh::Vector3& n = face.normal;
+      chi_math::VectorN<NDD> n = face.normal;
 
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal face
       if (face.neighbor>=0)
@@ -79,19 +80,19 @@ void INAVSSolver::AssembleSolvePressureCorrectionSystem()
         int jp     = fv_sdm.MapDOF(adj_cell,&uk_man_p,PRESSURE);
 
         //============================= Get Values
-        chi_mesh::Vector3 a_N;
+        chi_math::VectorN<NDD> a_N;
 
         for (int dim : dimensions)
           a_N(dim) = d_a_PL[dim][lju];
 
         //============================= Compute vectors
-        chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
-        chi_mesh::Vector3 PF = face.centroid - cell.centroid;
-        chi_mesh::Vector3 NF = face.centroid - adj_cell->centroid;
+        chi_math::VectorN<NDD> PN = adj_cell->centroid - cell.centroid;
+        chi_math::VectorN<NDD> PF = face.centroid - cell.centroid;
+        chi_math::VectorN<NDD> NF = face.centroid - adj_cell->centroid;
 
         double d_PN = PN.Norm();
 
-        chi_mesh::Vector3 e_PN = PN/d_PN;
+        chi_math::VectorN<NDD> e_PN = PN/d_PN;
 
         double d_PFi = PF.Dot(e_PN);
 
@@ -107,7 +108,7 @@ void INAVSSolver::AssembleSolvePressureCorrectionSystem()
         a_f_avg /= num_dimensions;
 
         //============================= Compute ds, a_inv_ds_inv
-        chi_mesh::Vector3 ds = adj_cell->centroid - cell.centroid;
+        chi_math::VectorN<NDD> ds = adj_cell->centroid - cell.centroid;
         auto a_ds = a_f_avg*ds;
         auto a_inv_ds_inv = a_ds.InverseZeroIfSmaller(1.0e-10);
 
@@ -133,7 +134,7 @@ void INAVSSolver::AssembleSolvePressureCorrectionSystem()
         a_f_avg /= num_dimensions;
 
         //============================= Compute Area vector
-        auto ds = face.centroid - cell.centroid;
+        chi_math::VectorN<NDD> ds = face.centroid - cell.centroid;
         auto a_ds = a_f_avg*ds;
         auto a_inv_ds_inv = a_ds.InverseZeroIfSmaller(1.0e-10);
 

@@ -11,9 +11,11 @@ extern double alpha_u;
 
 //###################################################################
 /**Assemble conservation of momentum system.*/
-void INAVSSolver::AssembleMomentumSystem()
+template<int NDD>
+void INAVSSolver<NDD>::AssembleMomentumSystem()
 {
   auto& log = ChiLog::GetInstance();
+  log.Log(LOG_ALLVERBOSE_1) << "Assembling momentum system.";
   log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_BEGIN);
 
   //============================================= Declare aliases
@@ -30,7 +32,7 @@ void INAVSSolver::AssembleMomentumSystem()
 
   //============================================= Get local views
   auto d_graduL = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_gradu);
-  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_a_PL(3);
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_a_PL(num_dimensions);
   for (int dim : dimensions)
     d_a_PL[dim] = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_a_P[dim]);
   auto d_gradpL = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_gradp);
@@ -40,6 +42,8 @@ void INAVSSolver::AssembleMomentumSystem()
   //============================================= Loop over cells
   for (auto& cell : grid->local_cells)
   {
+    chi_math::VectorN<NDD> P = cell.centroid;
+
     auto   cell_fv_view = fv_sdm.MapFeView(cell.local_id);
     double V_P          = cell_fv_view->volume;
 
@@ -54,26 +58,26 @@ void INAVSSolver::AssembleMomentumSystem()
       for (int j : dimensions)
         igrad_u[i][j] = fv_sdm.MapDOF(&cell,&uk_man_gradu,GRAD_U,i*ND+j);
 
-    std::vector<int> igradp(3,-1);
+    std::vector<int> igradp(NDD,-1);
     for (int dim : dimensions)
       igradp[dim]   = fv_sdm.MapDOF(&cell,&uk_man_gradp,GRAD_P, dim);
 
     //====================================== Get previous iteration info
-    chi_mesh::Vector3              u_P;           //for under-relaxation
-    chi_mesh::Vector3              u_P_old;       //for previous time
-    chi_mesh::TensorRank2Dim3      gradu_P;       //for upwindinding
+    chi_math::VectorN<NDD>         u_P;           //for under-relaxation
+    chi_math::VectorN<NDD>         u_P_old;       //for previous time
+    chi_math::Tensor2N<NDD>        gradu_P;       //for upwindinding
     double                         divu_P = 0.0;  //for stress term 2/3
-    chi_mesh::TensorRank2Dim3      gradu_P_T;     //for cross-diffusion
-    chi_mesh::Vector3              a_P_old;       //for pressure interpolation
+    chi_math::Tensor2N<NDD>        gradu_P_T;     //for cross-diffusion
+    chi_math::VectorN<NDD>         a_P_old;       //for pressure interpolation
     double                         a_P_avg;       //for pressure interpolation
-    chi_mesh::Vector3              gradp_P;       //for pressure interpolation
+    chi_math::VectorN<NDD>         gradp_P;       //for pressure interpolation
     double                         p_P;           //for pressure interpolation
 
     for (auto dim : dimensions)
     {
       VecGetValues(x_u[dim]   , 1, &iu, &u_P(dim));
       VecGetValues(x_uold[dim], 1, &iu, &u_P_old(dim));
-      VecGetValues(x_gradu, ND, igrad_u[dim].data(),&(gradu_P[dim](0)));
+      VecGetValues(x_gradu, ND, igrad_u[dim].data(),&(gradu_P(dim)(0)));
     }
     divu_P    = gradu_P.DiagSum();
     gradu_P_T = gradu_P.Transpose();
@@ -84,12 +88,13 @@ void INAVSSolver::AssembleMomentumSystem()
     VecGetValues(x_gradp, num_dimensions, igradp.data(), &gradp_P(0));
     VecGetValues(x_p,1,&ip,&p_P);
 
+
     //====================================== Init matrix coefficients
-    chi_mesh::Vector3              a_t;
-    chi_mesh::Vector3              a_P;
-    chi_mesh::Vector3              b_P;
-    chi_mesh::Vector3              b_P_pressure;
-    std::vector<chi_mesh::Vector3> a_N_f(cell.faces.size());
+    chi_math::VectorN<NDD>              a_t;
+    chi_math::VectorN<NDD>              a_P;
+    chi_math::VectorN<NDD>              b_P;
+    chi_math::VectorN<NDD>              b_P_pressure;
+    std::vector<chi_math::VectorN<NDD>> a_N_f(cell.faces.size());
 
     std::vector<int>    ju_at_f(cell.faces.size(), -1);
 
@@ -106,8 +111,9 @@ void INAVSSolver::AssembleMomentumSystem()
     for (auto& face : cell.faces)
     {
       ++f;
+      chi_math::VectorN<NDD> F = face.centroid;
       auto A_f = cell_fv_view->face_area[f];
-      chi_mesh::Vector3& n = face.normal;
+      chi_math::VectorN<NDD> n = face.normal;
 
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal face
       if (face.neighbor>=0)
@@ -117,6 +123,8 @@ void INAVSSolver::AssembleMomentumSystem()
           adj_cell = &grid->local_cells[face.GetNeighborLocalID(grid)];
         else
           adj_cell = grid->cells[face.neighbor];
+
+        chi_math::VectorN<NDD> N = adj_cell->centroid;
 
         auto& a_N = a_N_f[f];
 
@@ -131,24 +139,24 @@ void INAVSSolver::AssembleMomentumSystem()
             ljgrad_u[i][j] =
               fv_sdm.MapDOFLocal(adj_cell,&uk_man_gradu,GRAD_U,i*ND+j);
 
-        std::vector<int> ljgradp(3,-1);
+        std::vector<int> ljgradp(NDD,-1);
         for (int dim : dimensions)
           ljgradp[dim] = fv_sdm.MapDOFLocal(adj_cell,&uk_man_gradp,GRAD_P,dim);
 
         ju_at_f[f] = ju;
 
         //============================= Get neighbor previous iteration values
-        chi_mesh::TensorRank2Dim3 gradu_N;      //for upwindinding
+        chi_math::Tensor2N<NDD>   gradu_N;      //for upwindinding
         double                    divu_N = 0.0; //for stress term 2/3
-        chi_mesh::TensorRank2Dim3 gradu_N_T;    //for cross-diffusion
-        chi_mesh::Vector3         a_N_old;      //for pressure interpolation
+        chi_math::Tensor2N<NDD>   gradu_N_T;    //for cross-diffusion
+        chi_math::VectorN<NDD>    a_N_old;      //for pressure interpolation
         double                    a_N_avg;      //for pressure interpolation
-        chi_mesh::Vector3         gradp_N;      //for pressure interpolation
+        chi_math::VectorN<NDD>    gradp_N;      //for pressure interpolation
         double                    p_N;          //for pressure interpolation
 
         for (int i : dimensions)
           for (int j : dimensions)
-            gradu_N[i](j)  = d_graduL[ljgrad_u[i][j]];
+            gradu_N(i)(j)  = d_graduL[ljgrad_u[i][j]];
         gradu_N_T = gradu_N.Transpose();
         divu_N    = gradu_N.DiagSum();
         for (int i : dimensions)
@@ -162,23 +170,23 @@ void INAVSSolver::AssembleMomentumSystem()
 
 
         //============================= Compute vectors
-        chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
-        chi_mesh::Vector3 PF = face.centroid - cell.centroid;
-        chi_mesh::Vector3 NF = face.centroid - adj_cell->centroid;
+        chi_math::VectorN<NDD> PN = N - P;
+        chi_math::VectorN<NDD> PF = F - P;
+        chi_math::VectorN<NDD> NF = F - N;
 
         double d_PN    = PN.Norm();
 
-        chi_mesh::Vector3 e_PN = PN/d_PN;
+        chi_math::VectorN<NDD> e_PN = PN/d_PN;
 
         double d_PFi = PF.Dot(e_PN);
         double rP    = d_PFi/d_PN;
 
-        chi_mesh::Vector3 Fi  = cell.centroid + d_PFi*e_PN;
-        chi_mesh::Vector3 FiF = face.centroid - Fi;
+        chi_math::VectorN<NDD> Fi  = P + d_PFi*e_PN;
+        chi_math::VectorN<NDD> FiF = F - Fi;
 
         double A_p = A_f / (e_PN.Dot(n));
 
-        chi_mesh::Vector3 A_t = A_f*n - A_p * e_PN;
+        chi_math::VectorN<NDD> A_t = A_f*n - A_p * e_PN;
 
         double PF_dot_n = PF.Dot(n);
         double FN_dot_n = (-1.0*NF).Dot(n);
@@ -228,15 +236,15 @@ void INAVSSolver::AssembleMomentumSystem()
       else
       {
         //============================= Compute Area vector
-        auto PN = face.centroid - cell.centroid;
+        auto PN = F - P;
         double d_PN = PN.Norm();
         double d_perp = PN.Dot(n);
 
-        chi_mesh::Vector3 e_PN = PN/d_PN;
+        chi_math::VectorN<NDD> e_PN = PN/d_PN;
 
         double A_d = A_f/(e_PN.Dot(n));
 
-        chi_mesh::Vector3 A_t = A_f*n - A_d*e_PN;
+        chi_math::VectorN<NDD> A_t = A_f*n - A_d*e_PN;
 
         //============================= Compute/set average face values
         auto u_b = chi_mesh::Vector3(0.0,0.0,0.0);
@@ -262,10 +270,10 @@ void INAVSSolver::AssembleMomentumSystem()
 
     //====================================== Pressure source term
 //    chi_mesh::Vector3 s_pressure = -1.0*V_P*gradp_P;
-    chi_mesh::Vector3 s_pressure = -1.0*b_P_pressure;
+    chi_math::VectorN<NDD> s_pressure = -1.0*b_P_pressure;
 
     //====================================== Body force source term
-    chi_mesh::Vector3 s_body = V_P*chi_mesh::Vector3(0.0,0.0,0.0);
+    chi_math::VectorN<NDD> s_body = V_P*chi_mesh::Vector3(0.0,0.0,0.0);
 
     //====================================== Add under-relaxation to system
     b_P = b_P + ((1.0-alpha_u)/alpha_u)*a_P*u_P;
@@ -334,6 +342,7 @@ void INAVSSolver::AssembleMomentumSystem()
   log.LogEvent(tag_mom_assy,ChiLog::EventType::EVENT_END);
 
   //============================================= Solve the system
+  log.Log(LOG_ALLVERBOSE_1) << "Solving momentum system.";
   log.LogEvent(tag_mom_slv1,ChiLog::EventType::EVENT_BEGIN);
   for (int dim : dimensions)
   {

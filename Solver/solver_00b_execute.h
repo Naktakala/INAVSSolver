@@ -9,7 +9,8 @@ extern ChiTimer chi_program_timer;
 
 //###################################################################
 /**Executes the solver.*/
-void INAVSSolver::Execute()
+template<int NDD>
+void INAVSSolver<NDD>::Execute()
 {
   auto& log = ChiLog::GetInstance();
   log.Log(LOG_0) << "Executing Incompressible Navier Stokes Solver";

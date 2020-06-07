@@ -11,10 +11,14 @@ extern double dt;
 extern double alpha_p;
 extern double alpha_u;
 
+#include "ChiMath/chi_math_vectorNX.h"
+#include "ChiMath/chi_math_tensorRNX.h"
+
 //###################################################################
 /** Computes the gradient of the velocity where face velocities
  * are interpolated using the momentum equation.*/
-void INAVSSolver::ComputeGradU_WLSQ(bool limited)
+template<int NDD>
+void INAVSSolver<NDD>::ComputeGradU_WLSQ(bool limited)
 {
   auto& log = ChiLog::GetInstance();
 
@@ -29,7 +33,7 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
   VecSet(x_gradu,0.0);
 
   //============================================= Get local views
-  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_uL(3);
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_uL(num_dimensions);
   for (int dim : dimensions)
     d_uL[dim] = chi_math::PETScUtils::GetGhostVectorLocalViewRead(x_u[dim]);
   auto d_graduL =
@@ -49,7 +53,7 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
       int iu = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
 
       //==================================== Get previous iteration info
-      chi_mesh::Vector3 u_P;
+      chi_math::VectorN<NDD> u_P;
 
       for (int dim : dimensions)
         VecGetValues(x_u[dim], 1, &iu, &u_P(dim));
@@ -80,7 +84,7 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
           int lju = fv_sdm.MapDOFLocal(adj_cell,&uk_man_u,VELOCITY);
 
           //=========================== Get previous iteration info
-          chi_mesh::Vector3         u_N;
+          chi_math::VectorN<NDD> u_N;
 
           for (int dim : dimensions)
             u_N(dim) = d_uL[dim][lju];
@@ -94,7 +98,7 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
             u_min[cell.local_id][dim] = std::fmin(u_N[dim],prev_min);
           }
         }
-        //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
+          //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
         else
         {
 
@@ -116,13 +120,13 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
           fv_sdm.MapDOF(&cell,&uk_man_gradu,GRAD_U,i*ND+j);
 
     //====================================== Get previous iteration info
-    chi_mesh::Vector3         u_P;
-    chi_mesh::TensorRank2Dim3 gradu_P;
+    chi_math::VectorN<NDD>      u_P;
+    chi_math::Tensor2N<NDD> gradu_P;
 
     for (int dim : dimensions)
     {
       VecGetValues(x_u[dim], 1, &iu, &u_P(dim));
-      VecGetValues(v_gradu_old, ND, igrad_u[dim].data(),&(gradu_P[dim](0)));
+      VecGetValues(v_gradu_old, ND, igrad_u[dim].data(),&(gradu_P(dim)(0)));
     }
 
     //====================================== Declare systems
@@ -135,7 +139,7 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
     }
 
     //====================================== Compute deltas
-    chi_mesh::Vector3 alpha = chi_mesh::Vector3(1.0,1.0,1.0);
+    chi_math::VectorN<NDD> alpha(std::vector<double>(NDD,1.0));
     std::vector<double> delta_max(num_dimensions,0.0);
     std::vector<double> delta_min(num_dimensions,0.0);
 
@@ -153,7 +157,7 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
     for (auto& face : cell.faces)
     {
       ++f;
-      chi_mesh::Vector3& n   = face.normal;
+      chi_math::VectorN<NDD> n = face.normal;
 
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal face
       if (face.neighbor>=0)
@@ -174,19 +178,19 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
               fv_sdm.MapDOFLocal(adj_cell,&uk_man_gradu,GRAD_U,i*ND+j);
 
         //============================= Get previous iteration info
-        chi_mesh::Vector3         u_N;
-        chi_mesh::TensorRank2Dim3 gradu_N;
+        chi_math::VectorN<NDD>      u_N;
+        chi_math::Tensor2N<NDD> gradu_N;
 
         for (int dim :dimensions)
           u_N(dim) = d_uL[dim][lju];
 
         for (int i : dimensions)
           for (int j : dimensions)
-            gradu_N[i](j)  = d_graduL[ljgrad_u[i][j]];
+            gradu_N(i)(j)  = d_graduL[ljgrad_u[i][j]];
 
         //=========================== Compute vectors
-        chi_mesh::Vector3           PN = adj_cell->centroid - cell.centroid;
-        chi_mesh::TensorRank2Dim3 PNPN = PN.OTimes(PN);
+        chi_math::VectorN<NDD>    PN = adj_cell->centroid - cell.centroid;
+        chi_math::Tensor2N<NDD> PNPN = PN.OTimes(PN);
         double                 norm_PN = PN.NormSquare();
 
         double w = 1.0/norm_PN;
@@ -194,10 +198,10 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
         //=========================== Compute alpha_f
         if (limited)
         {
-          chi_mesh::Vector3      PF = face.centroid - cell.centroid;
-          chi_mesh::Vector3 delta_f = gradu_P.Dot(PF);
-          chi_mesh::Vector3 r;
-          chi_mesh::Vector3 alpha_f;
+          chi_math::VectorN<NDD>      PF = face.centroid - cell.centroid;
+          chi_math::VectorN<NDD> delta_f = gradu_P.Dot(PF);
+          chi_math::VectorN<NDD> r;
+          chi_math::VectorN<NDD> alpha_f;
 
           for (int dim : dimensions)
           {
@@ -225,18 +229,18 @@ void INAVSSolver::ComputeGradU_WLSQ(bool limited)
           for (int i : dimensions)
             b[dim][i] += w * PN[i] * (u_N[dim] - u_P[dim]);
       }//not bndry
-      // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
+        // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Boundary face
       else
       {
         //=========================== Compute vectors
-        chi_mesh::Vector3           PF = face.centroid - cell.centroid;
-        chi_mesh::TensorRank2Dim3 PFPF = PF.OTimes(PF);
-        double                 norm_PF = PF.Norm();
+        chi_math::VectorN<NDD>      PF = face.centroid - cell.centroid;
+        chi_math::Tensor2N<NDD>   PFPF = PF.OTimes(PF);
+        double                 norm_PF = PF.NormSquare();
 
         double w = 1.0/norm_PF;
 
         //=========================== Set boundary value
-        chi_mesh::Vector3 u_N;
+        chi_math::Vector3 u_N;
         if (n.Dot(J_HAT) > 0.999)
           u_N = chi_mesh::Vector3(U,0.0,0.0);
 

@@ -6,7 +6,8 @@
 
 //###################################################################
 /**Initializes the solver.*/
-void INAVSSolver::Initialize()
+template<int NDD>
+void INAVSSolver<NDD>::Initialize()
 {
   auto& log = ChiLog::GetInstance();
   log.Log(LOG_0) << "Initializing Incompressible Navier-Stokes Solver";
@@ -185,7 +186,7 @@ void INAVSSolver::Initialize()
       KSPRICHARDSON,        // Solver type
       PCHYPRE,       // Preconditioner type
       1.0e-1,       // Residual tolerance
-      30);         // Maximum number of iterations
+      3);         // Maximum number of iterations
 
   lin_solver_p = chi_math::PETScUtils::CreateCommonKrylovSolverSetup(
     A_pc,            // Reference matrix

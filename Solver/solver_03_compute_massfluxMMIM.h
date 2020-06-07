@@ -9,22 +9,25 @@ extern double dt;
 extern double alpha_p;
 extern double alpha_u;
 
+#include "ChiMath/chi_math_vectorNX.h"
+#include "ChiMath/chi_math_tensorRNX.h"
+
 //###################################################################
 /** Computes the gradient of the velocity where face velocities
  * are interpolated using the momentum equation.*/
-void INAVSSolver::ComputeMassFluxMMIM()
+template<int NDD>
+void INAVSSolver<NDD>::ComputeMassFluxMMIM()
 {
   auto& log = ChiLog::GetInstance();
   log.LogEvent(tag_comp_mf,ChiLog::EventType::EVENT_BEGIN);
 
   typedef std::vector<int> VecInt;
   typedef std::vector<VecInt> VecVecInt;
-  const int ND = num_dimensions;
 
   //============================================= Get local views
-  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_uL(3);
-  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_umimL(3);
-  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_a_PL(3);
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_uL(NDD);
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_umimL(NDD);
+  std::vector<chi_math::PETScUtils::GhostVecLocalRaw> d_a_PL(NDD);
 
   for (int dim : dimensions)
   {
@@ -43,7 +46,7 @@ void INAVSSolver::ComputeMassFluxMMIM()
     int iu            = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
 
     //====================================== Declare H_P coefficients
-    chi_mesh::Vector3 H_P;
+    chi_math::VectorN<NDD> H_P;
 
     //====================================== Loop over faces
     int f=-1;
@@ -64,7 +67,7 @@ void INAVSSolver::ComputeMassFluxMMIM()
 
         auto& a_N_f = cell_mom_coeffs.a_N_f[f];
 
-        chi_mesh::Vector3 u_N;
+        chi_math::VectorN<NDD> u_N;
         for (int dim : dimensions)
           u_N(dim) = d_uL[dim][lju];
 
@@ -73,7 +76,7 @@ void INAVSSolver::ComputeMassFluxMMIM()
     }//for faces
 
     //====================================== Add b coefficient
-    chi_mesh::Vector3 u_mim = H_P + cell_mom_coeffs.b_P;
+    chi_math::VectorN<NDD> u_mim = H_P + cell_mom_coeffs.b_P;
 
     //====================================== Set vector values
     for (auto dim : dimensions)
@@ -108,7 +111,7 @@ void INAVSSolver::ComputeMassFluxMMIM()
     int iu            = fv_sdm.MapDOF(&cell, &uk_man_u, VELOCITY);
     int ip            = fv_sdm.MapDOF(&cell, &uk_man_p, PRESSURE);
 
-    std::vector<int> igradp(3,-1);
+    std::vector<int> igradp(NDD,-1);
     for (int dim : dimensions)
       igradp[dim] = fv_sdm.MapDOF(&cell,&uk_man_gradp,GRAD_P,dim);
 
@@ -116,13 +119,13 @@ void INAVSSolver::ComputeMassFluxMMIM()
     for (int dimv : dimensions)
       for (int dim : dimensions)
         igrad_u[dimv][dim] =
-          fv_sdm.MapDOF(&cell,&uk_man_gradu,GRAD_U,dimv*ND+dim);
+          fv_sdm.MapDOF(&cell,&uk_man_gradu,GRAD_U,dimv*NDD+dim);
 
     //====================================== Get previous iteration info
     double p_P = 0.0;
-    chi_mesh::Vector3 gradp_P;
-    chi_mesh::Vector3 u_mim_P;
-    chi_mesh::Vector3 a_P;
+    chi_math::VectorN<NDD> gradp_P;
+    chi_math::VectorN<NDD> u_mim_P;
+    chi_math::VectorN<NDD> a_P;
 
     VecGetValues(x_p,1,&ip,&p_P);
     VecGetValues(x_gradp, num_dimensions, igradp.data(), &gradp_P(0));
@@ -133,7 +136,7 @@ void INAVSSolver::ComputeMassFluxMMIM()
     }
 
     //====================================== Declare grad coefficients
-    std::vector<chi_mesh::Vector3> a_gradu(num_dimensions);
+    std::vector<chi_math::VectorN<NDD>> a_gradu(num_dimensions);
 
     //====================================== Loop over faces
     int f=-1;
@@ -141,7 +144,7 @@ void INAVSSolver::ComputeMassFluxMMIM()
     {
       ++f;
       double             A_f = cell_fv_view->face_area[f];
-      chi_mesh::Vector3& n   = face.normal;
+      chi_math::VectorN<NDD> n = face.normal;
 
       //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal face
       if (face.neighbor>=0)
@@ -160,15 +163,15 @@ void INAVSSolver::ComputeMassFluxMMIM()
         int lju          = fv_sdm.MapDOFLocal(adj_cell,&uk_man_u,VELOCITY);
         int ljp          = fv_sdm.MapDOFLocal(adj_cell,&uk_man_p,PRESSURE);
 
-        std::vector<int> ljgradp(3,-1);
+        std::vector<int> ljgradp(NDD,-1);
         for (int dim : dimensions)
           ljgradp[dim] = fv_sdm.MapDOFLocal(adj_cell,&uk_man_gradp,GRAD_P,dim);
 
         //============================= Get previous iteration info
         double p_N;
-        chi_mesh::Vector3 gradp_N;
-        chi_mesh::Vector3 u_mim_N;
-        chi_mesh::Vector3 a_N;
+        chi_math::VectorN<NDD> gradp_N;
+        chi_math::VectorN<NDD> u_mim_N;
+        chi_math::VectorN<NDD> a_N;
 
         p_N = d_pL[ljp];
         for (int dim :dimensions)
@@ -180,33 +183,33 @@ void INAVSSolver::ComputeMassFluxMMIM()
 
 
         //============================= Compute vectors
-        chi_mesh::Vector3 PN = adj_cell->centroid - cell.centroid;
-        chi_mesh::Vector3 PF = face.centroid - cell.centroid;
+        chi_math::VectorN<NDD> PN = adj_cell->centroid - cell.centroid;
+        chi_math::VectorN<NDD> PF = face.centroid - cell.centroid;
 
         double d_PN = PN.Norm();
 
-        chi_mesh::Vector3 e_PN = PN/d_PN;
+        chi_math::VectorN<NDD> e_PN = PN/d_PN;
 
         double d_PFi = PF.Dot(e_PN);
 
         double rP = d_PFi/d_PN;
 
         //============================= Compute interpolated values
-        double dp                      = p_N - p_P;
-        chi_mesh::Vector3 u_mim_f      = (1.0-rP)*u_mim_P + rP*u_mim_N;
-        chi_mesh::Vector3 a_f          = (1.0-rP)*a_P     + rP*a_N;
-        double            V_f          = (1.0-rP)*V_P     + rP*V_N;
-        chi_mesh::Vector3 grad_p_f_avg = (1.0-rP)*gradp_P + rP*gradp_N;
+        double dp                           = p_N - p_P;
+        chi_math::VectorN<NDD> u_mim_f      = (1.0-rP)*u_mim_P + rP*u_mim_N;
+        chi_math::VectorN<NDD> a_f          = (1.0-rP)*a_P     + rP*a_N;
+        double            V_f               = (1.0-rP)*V_P     + rP*V_N;
+        chi_math::VectorN<NDD> grad_p_f_avg = (1.0-rP)*gradp_P + rP*gradp_N;
 
-        chi_mesh::Vector3 a_f_inv = a_f.InverseZeroIfSmaller(1.0e-10);
+        chi_math::VectorN<NDD> a_f_inv = a_f.InverseZeroIfSmaller(1.0e-10);
 
         //============================= Compute grad_p_f
 //        chi_mesh::Vector3 grad_p_f = (dp/d_PN)*e_PN + grad_p_f_avg -
 //                                     grad_p_f_avg.Dot(e_PN)*e_PN;
-        chi_mesh::Vector3 grad_p_f = (dp/d_PN)*e_PN;
+        chi_math::VectorN<NDD> grad_p_f = (dp/d_PN)*e_PN;
 
         //============================= Compute face velocities
-        chi_mesh::Vector3 u_f = (alpha_u*a_f_inv)*(u_mim_f - V_f * grad_p_f);
+        chi_math::VectorN<NDD> u_f = (alpha_u*a_f_inv)*(u_mim_f - V_f * grad_p_f);
 
         mass_fluxes[cell.local_id][f] = rho*A_f*n.Dot(u_f);
       }//not bndry
